@@ -1,19 +1,18 @@
 package com.lshzzz.mato.model.users;
 
+import com.lshzzz.mato.model.BaseEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
 
 @Entity
 @Table(name = "users")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Users {
+public class Users extends BaseEntity {
 
     // ID(PK)
     @Id
@@ -36,15 +35,6 @@ public class Users {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role;
-
-    // Created At
-    @CreatedDate
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
-
-    // Updated At
-    @LastModifiedDate
-    private LocalDateTime updatedAt;
 
     // Deleted At
     @Column

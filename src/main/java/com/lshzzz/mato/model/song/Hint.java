@@ -36,5 +36,5 @@ public class Hint extends BaseEntity {
 	private String hintText; // 🎯 힌트 내용 (ex. "OST", "3글자")
 
 	@Column(nullable = false)
-	private int hintTime; // 🎯 몇 초 후에 힌트를 보여줄 것인지 설정 (ex. 10초 후)
+	private int revealTime; // 🎯 몇 초 후에 힌트를 보여줄 것인지 설정 (ex. 10초 후)
 }

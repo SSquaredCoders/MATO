@@ -33,10 +33,10 @@ public class Song extends BaseEntity {
 	private String youtubeUrl; // 오디오 파일 URL (유튜브 OR 직접 업로드)
 
 	// 업데이트 메서드
-	public void update(String title, String artist, String composer, String audioUrl) {
+	public void update(String title, String artist, String composer, String youtubeUrl) {
 		this.title = title;
 		this.artist = artist;
 		this.composer = composer;
-		this.youtubeUrl = audioUrl;
+		this.youtubeUrl = youtubeUrl;
 	}
 }

@@ -8,7 +8,7 @@ public record SongResponseDto(
 	String title,
 	String artist,
 	String composer,
-	String audioUrl,
+	String youtubeUrl,
 	LocalDateTime createdAt,
 	LocalDateTime updatedAt
 ) {

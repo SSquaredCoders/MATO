@@ -38,6 +38,11 @@ public class MapController {
 		}
 	}
 
+	@GetMapping("/check-duplicate")
+	public ResponseEntity<Boolean> checkDuplicateMap(@RequestParam String name) {
+		return ResponseEntity.ok(mapService.checkDuplicateMap(name));
+	}
+
 	// 특정 맵 정보 조회 (ID 기반)
 	@GetMapping("/{id}")
 	public ResponseEntity<MapResponseDto> getMap(@PathVariable Long id) {

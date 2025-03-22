@@ -24,10 +24,7 @@ public class SongService {
 	// 노래 등록
 	public SongResponseDto createSong(SongRequestDto requestDto) {
 		Song song = Song.builder()
-			.title(requestDto.title())
-			.artist(requestDto.artist())
-			.composer(requestDto.composer())
-			.youtubeUrl(requestDto.youtubeUrl()) // 유튜브 URL 포함 가능
+			.youtubeUrl(requestDto.youtubeUrl())
 			.build();
 		songRepository.save(song);
 		return new SongResponseDto(song);
@@ -54,9 +51,6 @@ public class SongService {
 		Song song = songRepository.findById(id)
 			.orElseThrow(() -> new IllegalArgumentException("존재하지 않는 노래입니다."));
 		song.update(
-			requestDto.title(),
-			requestDto.artist(),
-			requestDto.composer(),
 			requestDto.youtubeUrl()
 		);
 		return new SongResponseDto(song);

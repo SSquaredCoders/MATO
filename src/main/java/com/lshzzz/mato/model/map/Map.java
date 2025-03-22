@@ -1,5 +1,6 @@
 package com.lshzzz.mato.model.map;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,6 +44,9 @@ public class Map extends BaseEntity {
 
 	@Column(name = "map_status", nullable = false)
 	private Boolean isPublic;
+
+	@OneToMany(mappedBy = "map", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<MapSong> mapSongs = new ArrayList<>();
 
 	public void update(String name, String description, Boolean isPublic) {
 		this.name = name;

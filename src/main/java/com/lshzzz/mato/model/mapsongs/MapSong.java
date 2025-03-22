@@ -60,5 +60,4 @@ public class MapSong extends BaseEntity {
 	@OneToMany(mappedBy = "mapSong", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<Hint> hints = new ArrayList<>();
 
-
 }

@@ -16,14 +16,15 @@ import java.util.List;
 public class AnswerController {
 	private final AnswerService answerService;
 
-	@PostMapping("/{songId}/answers")
-	public ResponseEntity<List<AnswerResponseDto>> addAnswers(@PathVariable Long songId,
+	@PostMapping("/{mapSongId}")
+	public ResponseEntity<List<AnswerResponseDto>> addAnswers(
+		@PathVariable Long mapSongId,
 		@RequestBody AnswerRequestDto requestDto) {
-		return ResponseEntity.ok(answerService.addAnswersToSong(songId, requestDto));
+		return ResponseEntity.ok(answerService.addAnswers(mapSongId, requestDto));
 	}
 
-	@GetMapping("/{songId}")
-	public ResponseEntity<List<AnswerDto>> getAnswers(@PathVariable Long songId) {
-		return ResponseEntity.ok(answerService.getAnswersBySong(songId));
+	@GetMapping("/{mapSongId}")
+	public ResponseEntity<List<AnswerDto>> getAnswers(@PathVariable Long mapSongId) {
+		return ResponseEntity.ok(answerService.getAnswersByMapSong(mapSongId));
 	}
 }

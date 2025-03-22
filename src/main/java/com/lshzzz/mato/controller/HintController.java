@@ -16,14 +16,16 @@ import java.util.List;
 public class HintController {
 	private final HintService hintService;
 
-	@PostMapping("/{songId}/hints")
-	public ResponseEntity<List<HintResponseDto>> addHints(@PathVariable Long songId,
+	@PostMapping("/{mapSongId}")
+	public ResponseEntity<List<HintResponseDto>> addHints(
+		@PathVariable Long mapSongId,
 		@RequestBody HintRequestDto requestDto) {
-		return ResponseEntity.ok(hintService.addHintsToSong(songId, requestDto));
+		List<HintResponseDto> responses = hintService.addHintsToMapSong(mapSongId, requestDto);
+		return ResponseEntity.ok(responses);
 	}
 
-	@GetMapping("/{songId}")
-	public ResponseEntity<List<HintDto>> getHints(@PathVariable Long songId) {
-		return ResponseEntity.ok(hintService.getHintsBySong(songId));
+	@GetMapping("/{mapSongId}")
+	public ResponseEntity<List<HintDto>> getHints(@PathVariable Long mapSongId) {
+		return ResponseEntity.ok(hintService.getHintsByMapSong(mapSongId));
 	}
 }

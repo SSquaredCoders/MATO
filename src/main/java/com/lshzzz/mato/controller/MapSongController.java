@@ -2,6 +2,10 @@ package com.lshzzz.mato.controller;
 
 import com.lshzzz.mato.model.mapsongs.dto.MapSongRequestDto;
 import com.lshzzz.mato.model.mapsongs.dto.MapSongResponseDto;
+import com.lshzzz.mato.model.song.dto.AnswerRequestDto;
+import com.lshzzz.mato.model.song.dto.AnswerResponseDto;
+import com.lshzzz.mato.model.song.dto.HintRequestDto;
+import com.lshzzz.mato.model.song.dto.HintResponseDto;
 import com.lshzzz.mato.service.MapSongService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,6 +27,20 @@ public class MapSongController {
 		@RequestBody @Valid MapSongRequestDto requestDto) {
 		MapSongResponseDto added = mapSongService.addSongToMap(mapId, requestDto);
 		return ResponseEntity.status(HttpStatus.CREATED).body(added);
+	}
+
+	@PostMapping("/answers")
+	public ResponseEntity<List<AnswerResponseDto>> addAnswers(
+		@RequestBody AnswerRequestDto requestDto) {
+		List<AnswerResponseDto> responses = answerService.addAnswers(requestDto);
+		return ResponseEntity.ok(responses);
+	}
+
+	@PostMapping("/hints")
+	public ResponseEntity<List<HintResponseDto>> addHints(
+		@RequestBody HintRequestDto requestDto) {
+		List<HintResponseDto> responses = hintService.addHints(requestDto);
+		return ResponseEntity.ok(responses);
 	}
 
 	// 특정 맵에 연결된 모든 노래 조회

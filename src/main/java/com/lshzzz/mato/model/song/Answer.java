@@ -1,6 +1,7 @@
 package com.lshzzz.mato.model.song;
 
 import com.lshzzz.mato.model.BaseEntity;
+import com.lshzzz.mato.model.mapsongs.MapSong;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -29,9 +30,9 @@ public class Answer extends BaseEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@ManyToOne(fetch = FetchType.LAZY) // 🎯 하나의 노래에 여러 개의 정답 가능
-	@JoinColumn(name = "song_id", nullable = false)
-	private Song song;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "map_song_id", nullable = false)
+	private MapSong mapSong;
 
 	@Column(nullable = false)
 	private String answerText; // 🎯 정답 문구 (ex. "사랑인가봐", "Love Maybe")

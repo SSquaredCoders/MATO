@@ -60,6 +60,7 @@ public class RoomsService {
     }
 
     // 방 생성
+    @Transactional
     public RoomsResponse createRoom(RoomsCreateRequest request, String hostNickname) {
         Rooms room = Rooms.builder()
             .name(request.name())

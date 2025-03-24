@@ -47,4 +47,26 @@ public class AnswerService {
 			.map(answer -> new AnswerDto(answer.getId(), mapSongId, answer.getAnswerText()))
 			.toList();
 	}
+
+	@Transactional
+	public List<AnswerResponseDto> updateAnswers(Long mapSongId, AnswerRequestDto requestDto) {
+		MapSong mapSong = mapSongRepository.findById(mapSongId)
+			.orElseThrow(() -> new IllegalArgumentException("MapSong을 찾을 수 없습니다."));
+
+		// 기존 정답 삭제
+		answerRepository.deleteByMapSongId(mapSongId);
+
+		// 새 정답 저장
+		List<Answer> saved = requestDto.answerTexts().stream()
+			.map(text -> Answer.builder()
+				.answerText(text)
+				.mapSong(mapSong)
+				.build())
+			.toList();
+
+		answerRepository.saveAll(saved);
+		return saved.stream().map(AnswerResponseDto::new).toList();
+	}
+
+
 }

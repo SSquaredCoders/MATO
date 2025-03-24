@@ -1,10 +1,12 @@
 package com.lshzzz.mato.controller.rooms;
 
+import com.lshzzz.mato.model.room.dto.RoomPasswordValidationRequest;
 import com.lshzzz.mato.model.room.dto.RoomsCreateRequest;
 import com.lshzzz.mato.model.room.dto.RoomsResponse;
 import com.lshzzz.mato.model.room.dto.RoomsUpdateRequest;
 import com.lshzzz.mato.service.rooms.RoomsService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -54,5 +56,13 @@ public class RoomsController {
         String nickname = roomsService.resolveNickname(httpRequest);
         roomsService.deleteRoom(id, nickname);
         return ResponseEntity.noContent().build();
+    }
+
+    // 비밀번호 검증
+    @PostMapping("/validate")
+    public ResponseEntity<Boolean> validatePassword(
+        @RequestBody RoomPasswordValidationRequest request) {
+        boolean result = roomsService.validatePassword(request.name(), request.password());
+        return ResponseEntity.ok(result);
     }
 }

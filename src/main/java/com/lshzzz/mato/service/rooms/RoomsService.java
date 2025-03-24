@@ -38,7 +38,7 @@ public class RoomsService {
             HttpSession session = request.getSession();
             String guestNick = (String) session.getAttribute("guestNickname");
             if (guestNick == null) {
-                guestNick = "게스트" + (int)(Math.random() * 9000 + 1000);
+                guestNick = "게스트" + (int) (Math.random() * 9000 + 1000);
                 session.setAttribute("guestNickname", guestNick);
             }
             return guestNick;
@@ -99,5 +99,19 @@ public class RoomsService {
         }
 
         roomsRepository.delete(room);
+    }
+
+    // 비밀번호 검증
+    public boolean validatePassword(String roomName, String inputPassword) {
+        Rooms room = roomsRepository.findByName(roomName)
+            .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
+
+        // 비밀번호가 없는 방이면 누구나 입장 가능
+        if (room.getPassword() == null || room.getPassword().isBlank()) {
+            return true;
+        }
+
+        // 비밀번호가 있는 경우, 정확히 일치하는지 확인
+        return room.getPassword().equals(inputPassword);
     }
 }

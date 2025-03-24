@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface HintRepository extends JpaRepository<Hint, Long> {
 	List<Hint> findByMapSongId(Long mapSongId);
+
+	void deleteByMapSongId(Long mapSongId);
 }

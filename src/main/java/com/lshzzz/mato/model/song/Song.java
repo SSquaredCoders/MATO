@@ -23,8 +23,12 @@ public class Song extends BaseEntity {
 	@Column(nullable = false)
 	private String youtubeUrl; // 오디오 파일 URL (유튜브 OR 직접 업로드)
 
+	@Column(nullable = false)
+	private String title;
+
 	// 업데이트 메서드
-	public void update(String youtubeUrl) {
+	public void update(String youtubeUrl, String title) {
 		this.youtubeUrl = youtubeUrl;
+		this.title = title;
 	}
 }

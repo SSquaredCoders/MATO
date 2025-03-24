@@ -47,4 +47,26 @@ public class HintService {
 			.map(h -> new HintDto(h.getId(), h.getMapSong().getId(), h.getHintText(), h.getRevealTime()))
 			.toList();
 	}
+
+	@Transactional
+	public List<HintResponseDto> updateHints(Long mapSongId, HintRequestDto requestDto) {
+		MapSong mapSong = mapSongRepository.findById(mapSongId)
+			.orElseThrow(() -> new IllegalArgumentException("MapSong을 찾을 수 없습니다."));
+
+		// 기존 힌트 삭제
+		hintRepository.deleteByMapSongId(mapSongId);
+
+		// 새 힌트 저장
+		List<Hint> saved = requestDto.hints().stream()
+			.map(h -> Hint.builder()
+				.hintText(h.hintText())
+				.revealTime(h.revealTime())
+				.mapSong(mapSong)
+				.build())
+			.toList();
+
+		hintRepository.saveAll(saved);
+		return saved.stream().map(HintResponseDto::new).toList();
+	}
+
 }

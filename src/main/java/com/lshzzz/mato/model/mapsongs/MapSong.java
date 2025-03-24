@@ -34,7 +34,8 @@ import lombok.NoArgsConstructor;
 @Builder
 public class MapSong extends BaseEntity {
 
-	@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
@@ -59,5 +60,15 @@ public class MapSong extends BaseEntity {
 
 	@OneToMany(mappedBy = "mapSong", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<Hint> hints = new ArrayList<>();
+
+	public void updateSong(Song newSong) {
+		this.song = newSong;
+	}
+
+	public void updateTiming(Integer start, Integer end, Integer repeat) {
+		this.startTime = start;
+		this.endTime = end;
+		this.repeatCount = repeat;
+	}
 
 }

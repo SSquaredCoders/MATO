@@ -1,8 +1,10 @@
 package com.lshzzz.mato.model.mapsongs.dto;
 
 import com.lshzzz.mato.model.mapsongs.MapSong;
+import com.lshzzz.mato.model.song.dto.AnswerDto;
+import com.lshzzz.mato.model.song.dto.HintDto;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
 public record MapSongResponseDto(
 	Long id,
@@ -11,10 +13,10 @@ public record MapSongResponseDto(
 	Integer startTime,
 	Integer endTime,
 	Integer repeatCount,
-	LocalDateTime createdAt,
-	LocalDateTime updatedAt
+	List<AnswerDto> answers,
+	List<HintDto> hints
 ) {
-	public MapSongResponseDto(MapSong mapSong) {
+	public MapSongResponseDto(MapSong mapSong, List<AnswerDto> answers, List<HintDto> hints) {
 		this(
 			mapSong.getId(),
 			mapSong.getMap().getId(),
@@ -22,8 +24,8 @@ public record MapSongResponseDto(
 			mapSong.getStartTime(),
 			mapSong.getEndTime(),
 			mapSong.getRepeatCount(),
-			mapSong.getCreatedAt(),
-			mapSong.getUpdatedAt()
+			answers,
+			hints
 		);
 	}
 }

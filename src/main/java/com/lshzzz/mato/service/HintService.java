@@ -1,11 +1,13 @@
 package com.lshzzz.mato.service;
 
+import com.lshzzz.mato.model.mapsongs.MapSong;
 import com.lshzzz.mato.model.song.Hint;
 import com.lshzzz.mato.model.song.Song;
 import com.lshzzz.mato.model.song.dto.HintDto;
 import com.lshzzz.mato.model.song.dto.HintRequestDto;
 import com.lshzzz.mato.model.song.dto.HintResponseDto;
 import com.lshzzz.mato.repository.HintRepository;
+import com.lshzzz.mato.repository.MapSongRepository;
 import com.lshzzz.mato.repository.SongRepository;
 
 import jakarta.transaction.Transactional;
@@ -18,32 +20,31 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class HintService {
 	private final HintRepository hintRepository;
-	private final SongRepository songRepository;
+	private final MapSongRepository mapSongRepository;
 
 	@Transactional
-	public List<HintResponseDto> addHintsToSong(Long songId, HintRequestDto requestDto) {
-		Song song = songRepository.findById(songId)
-			.orElseThrow(() -> new IllegalArgumentException("노래를 찾을 수 없습니다. ID: " + songId));
+	public List<HintResponseDto> addHintsToMapSong(Long mapSongId, HintRequestDto requestDto) {
+		MapSong mapSong = mapSongRepository.findById(mapSongId)
+			.orElseThrow(() -> new IllegalArgumentException("MapSong 없음"));
 
 		List<Hint> hints = requestDto.hints().stream()
 			.map(data -> Hint.builder()
-				.song(song)
+				.mapSong(mapSong)
 				.hintText(data.hintText())
 				.revealTime(data.revealTime())
 				.build())
-			.collect(Collectors.toList());
+			.toList();
 
 		hintRepository.saveAll(hints);
 
 		return hints.stream()
-			.map(hint -> new HintResponseDto(hint.getId(), songId, hint.getHintText(), hint.getRevealTime()))
-			.collect(Collectors.toList());
+			.map(hint -> new HintResponseDto(hint.getId(), mapSongId, hint.getHintText(), hint.getRevealTime()))
+			.toList();
 	}
 
-	public List<HintDto> getHintsBySong(Long songId) {
-		return hintRepository.findBySongId(songId)
-			.stream()
-			.map(hint -> new HintDto(hint.getId(), songId, hint.getHintText(), hint.getRevealTime()))
-			.collect(Collectors.toList());
+	public List<HintDto> getHintsByMapSong(Long mapSongId) {
+		return hintRepository.findByMapSongId(mapSongId).stream()
+			.map(h -> new HintDto(h.getId(), h.getMapSong().getId(), h.getHintText(), h.getRevealTime()))
+			.toList();
 	}
 }

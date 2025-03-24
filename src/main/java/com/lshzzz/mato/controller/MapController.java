@@ -58,10 +58,10 @@ public class MapController {
 	}
 
 	// 맵 정보 수정
-	@PutMapping("/{id}")
-	public ResponseEntity<MapResponseDto> updateMap(@PathVariable Long id,
+	@PatchMapping("/{mapId}")
+	public ResponseEntity<MapResponseDto> updateMap(@PathVariable Long mapId,
 		@RequestBody @Valid MapRequestDto requestDto) {
-		MapResponseDto updatedMap = mapService.updateMap(id, requestDto);
+		MapResponseDto updatedMap = mapService.updateMap(mapId, requestDto);
 		return ResponseEntity.ok(updatedMap);
 	}
 

@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -30,16 +31,23 @@ public class MapSongService {
 			.orElseThrow(() -> new IllegalArgumentException("맵을 찾을 수 없습니다."));
 
 		Song song = resolveSong(requestDto);
+		System.out.println("✅ song resolved: " + song.getId());
+
 		MapSong mapSong = MapSong.builder()
 			.map(map)
 			.song(song)
 			.startTime(requestDto.startTime())
 			.endTime(requestDto.endTime())
 			.repeatCount(requestDto.repeatCount())
+			.answers(new ArrayList<>())  // ✅ 기본값으로 비어있는 리스트
+			.hints(new ArrayList<>())    // ✅ 마찬가지
 			.build();
 
-		mapSongRepository.save(mapSong);
-		return convertToDto(mapSong);
+		MapSong savedMapSong = mapSongRepository.save(mapSong);
+
+		System.out.println("✅ 저장된 mapSong ID: " + mapSong.getId());
+
+		return convertToDto(savedMapSong);
 	}
 
 	// 맵에 연결된 노래 목록 조회
@@ -49,6 +57,35 @@ public class MapSongService {
 			.map(this::convertToDto)
 			.toList();
 	}
+
+	// 노래 업데이트
+	@Transactional
+	public MapSongResponseDto updateMapSong(Long mapSongId, MapSongRequestDto requestDto) {
+		MapSong mapSong = mapSongRepository.findById(mapSongId)
+			.orElseThrow(() -> new IllegalArgumentException("MapSong을 찾을 수 없습니다."));
+
+		// 🔁 노래 교체 or 새 노래 생성
+		Song song;
+		if (requestDto.songId() != null) {
+			song = songRepository.findById(requestDto.songId())
+				.orElseThrow(() -> new IllegalArgumentException("해당 Song ID 없음"));
+		} else if (requestDto.newSong() != null) {
+			song = Song.builder()
+				.youtubeUrl(requestDto.newSong().youtubeUrl())
+				// .title(requestDto.newSong().title()) 등 확장 가능
+				.build();
+			songRepository.save(song);
+		} else {
+			throw new IllegalArgumentException("수정할 Song 정보가 없습니다.");
+		}
+
+		// ✅ mapSong 정보 수정
+		mapSong.updateSong(song);
+		mapSong.updateTiming(requestDto.startTime(), requestDto.endTime(), requestDto.repeatCount());
+
+		return convertToDto(mapSong);
+	}
+
 
 	// 노래 제거
 	public void removeSongFromMap(Long mapSongId) {

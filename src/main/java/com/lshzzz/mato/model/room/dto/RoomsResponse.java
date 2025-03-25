@@ -9,5 +9,7 @@ public record RoomsResponse(
     String password,
     String host,
     Integer participants,
-    GameStatus gameStatus
+    GameStatus gameStatus,
+    Long mapId,
+    String mapName
 ) {}

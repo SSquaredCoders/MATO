@@ -6,7 +6,7 @@ import com.lshzzz.mato.model.room.dto.RoomsResponse;
 import com.lshzzz.mato.model.room.dto.RoomsUpdateRequest;
 import com.lshzzz.mato.service.rooms.RoomsService;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Map;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -34,7 +34,7 @@ public class RoomsController {
 
     // 방 생성
     @PostMapping
-    public ResponseEntity<RoomsResponse> createRoom(@RequestBody RoomsCreateRequest request,
+    public ResponseEntity<RoomsResponse> createRoom(@RequestBody @Valid RoomsCreateRequest request,
         HttpServletRequest httpRequest) {
         String hostNickname = roomsService.resolveNickname(httpRequest);
         return ResponseEntity.ok(roomsService.createRoom(request, hostNickname));
@@ -43,7 +43,7 @@ public class RoomsController {
     // 방 수정
     @PutMapping("/{id}")
     public ResponseEntity<RoomsResponse> updateRoom(@PathVariable Long id,
-        @RequestBody RoomsUpdateRequest request,
+        @RequestBody @Valid RoomsUpdateRequest request,
         HttpServletRequest httpRequest) {
         String nickname = roomsService.resolveNickname(httpRequest);
         return ResponseEntity.ok(roomsService.updateRoom(id, request, nickname));

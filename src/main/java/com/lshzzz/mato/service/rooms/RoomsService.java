@@ -2,10 +2,12 @@ package com.lshzzz.mato.service.rooms;
 
 import com.lshzzz.mato.exception.CustomException;
 import com.lshzzz.mato.exception.ErrorCode;
+import com.lshzzz.mato.model.map.Map;
 import com.lshzzz.mato.model.room.Rooms;
 import com.lshzzz.mato.model.room.dto.RoomsCreateRequest;
 import com.lshzzz.mato.model.room.dto.RoomsResponse;
 import com.lshzzz.mato.model.room.dto.RoomsUpdateRequest;
+import com.lshzzz.mato.repository.MapRepository;
 import com.lshzzz.mato.repository.RoomsRepository;
 import com.lshzzz.mato.utils.rooms.RoomsMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RoomsService {
 
     private final RoomsRepository roomsRepository;
+    private final MapRepository mapRepository;
 
     // 로그인 여부 확인 뒤 비회원 닉네임 랜덤 부여
     public String resolveNickname(HttpServletRequest request) {
@@ -62,12 +65,16 @@ public class RoomsService {
     // 방 생성
     @Transactional
     public RoomsResponse createRoom(RoomsCreateRequest request, String hostNickname) {
+        Map map = mapRepository.findById(request.mapId())
+            .orElseThrow(() -> new CustomException(ErrorCode.MAP_NOT_FOUND));
+
         Rooms room = Rooms.builder()
             .name(request.name())
             .password(request.password())
             .host(hostNickname)
             .participants(1)
             .gameStatus(request.gameStatus())
+            .map(map)
             .build();
         return RoomsMapper.toResponse(roomsRepository.save(room));
     }
@@ -84,6 +91,14 @@ public class RoomsService {
 
         room.updateName(request.name());
         room.updatePassword(request.password());
+
+        if (request.mapId() == null) {
+            throw new CustomException(ErrorCode.MAP_NOT_FOUND);
+        }
+
+        Map map = mapRepository.findById(request.mapId())
+            .orElseThrow(() -> new CustomException(ErrorCode.MAP_NOT_FOUND));
+        room.updateMap(map);
 
         return RoomsMapper.toResponse(room);
     }

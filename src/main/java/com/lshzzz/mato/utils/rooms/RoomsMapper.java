@@ -12,7 +12,9 @@ public class RoomsMapper {
             room.getPassword(),
             room.getHost(),
             room.getParticipants(),
-            room.getGameStatus()
+            room.getGameStatus(),
+            room.getMap().getId(),
+            room.getMap().getName()
         );
     }
 }

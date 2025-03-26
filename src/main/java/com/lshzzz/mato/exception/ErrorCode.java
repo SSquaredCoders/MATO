@@ -13,7 +13,9 @@ public enum ErrorCode {
     INVALID_PASSWORD_CONFIRMATION(HttpStatus.BAD_REQUEST, "INVALID_PASSWORD_CONFIRMATION", "비밀번호가 일치하지 않습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "로그인이 필요합니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "요청이 유효하지 않습니다."),
-    USER_ALREADY_DELETED(HttpStatus.BAD_REQUEST, "USER_ALREADY_DELETED", "이미 탈퇴한 사용자입니다.");
+    USER_ALREADY_DELETED(HttpStatus.BAD_REQUEST, "USER_ALREADY_DELETED", "이미 탈퇴한 사용자입니다."),
+    ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND", "방을 찾을 수 없습니다."),
+    MAP_NOT_FOUND(HttpStatus.NOT_FOUND, "MAP_NOT_FOUND", "맵을 찾을 수 없습니다.");
 
     private final HttpStatus status;  // HTTP 상태 코드
     private final String code;    // 에러 코드

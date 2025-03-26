@@ -1,19 +1,20 @@
 package com.lshzzz.mato.controller;
 
-import com.lshzzz.mato.model.Message;
-import lombok.extern.slf4j.Slf4j;
+import com.lshzzz.mato.model.chat.dto.ChatMessage;
+import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
-@Slf4j
 @Controller
+@RequiredArgsConstructor
 public class ChatController {
 
-	@MessageMapping("/send")
-	@SendTo("/topic/messages")
-	public Message sendMessage(String message) {
-		log.info("Received message: {}", message);
-		return new Message(message);
+	private final SimpMessagingTemplate messagingTemplate;
+
+	@MessageMapping("/chat.send")
+	public void sendMessage(@Payload ChatMessage message) {
+		messagingTemplate.convertAndSend("/topic/rooms/" + message.roomName(), message);
 	}
 }

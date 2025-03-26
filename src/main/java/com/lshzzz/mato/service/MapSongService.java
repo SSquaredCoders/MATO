@@ -7,16 +7,21 @@ import com.lshzzz.mato.model.mapsongs.dto.MapSongResponseDto;
 import com.lshzzz.mato.model.song.Song;
 import com.lshzzz.mato.model.song.dto.AnswerDto;
 import com.lshzzz.mato.model.song.dto.HintDto;
+import com.lshzzz.mato.model.song.dto.SongResponseDto;
 import com.lshzzz.mato.repository.MapRepository;
 import com.lshzzz.mato.repository.MapSongRepository;
 import com.lshzzz.mato.repository.SongRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -61,30 +66,37 @@ public class MapSongService {
 	// 노래 업데이트
 	@Transactional
 	public MapSongResponseDto updateMapSong(Long mapSongId, MapSongRequestDto requestDto) {
-		MapSong mapSong = mapSongRepository.findById(mapSongId)
-			.orElseThrow(() -> new IllegalArgumentException("MapSong을 찾을 수 없습니다."));
+		try {
+			MapSong mapSong = mapSongRepository.findById(mapSongId)
+				.orElseThrow(() -> new IllegalArgumentException("MapSong을 찾을 수 없습니다. ID=" + mapSongId));
 
-		// 🔁 노래 교체 or 새 노래 생성
-		Song song;
-		if (requestDto.songId() != null) {
-			song = songRepository.findById(requestDto.songId())
-				.orElseThrow(() -> new IllegalArgumentException("해당 Song ID 없음"));
-		} else if (requestDto.newSong() != null) {
-			song = Song.builder()
-				.youtubeUrl(requestDto.newSong().youtubeUrl())
-				// .title(requestDto.newSong().title()) 등 확장 가능
-				.build();
-			songRepository.save(song);
-		} else {
-			throw new IllegalArgumentException("수정할 Song 정보가 없습니다.");
+			Song song = mapSong.getSong();
+
+			if (requestDto.songId() != null) {
+				song = songRepository.findById(requestDto.songId())
+					.orElseThrow(() -> new IllegalArgumentException("해당 Song ID 없음: " + requestDto.songId()));
+			} else if (requestDto.newSong() != null) {
+				String url = Optional.ofNullable(requestDto.newSong().youtubeUrl())
+					.orElseThrow(() -> new IllegalArgumentException("youtubeUrl은 null일 수 없습니다."));
+				String title = Optional.ofNullable(requestDto.newSong().title()).orElse("제목 없음");
+
+				song = Song.builder()
+					.youtubeUrl(url)
+					.title(title)
+					.build();
+				songRepository.save(song);
+			}
+
+			mapSong.updateSong(song);
+			mapSong.updateTiming(requestDto.startTime(), requestDto.endTime(), requestDto.repeatCount());
+
+			return convertToDto(mapSong);
+		} catch (Exception e) {
+			log.error("🔴 MapSong 수정 중 예외 발생: {}", e.getMessage(), e);
+			throw new RuntimeException("MapSong 수정 중 오류 발생", e);  // 예외의 원인 포함
 		}
-
-		// ✅ mapSong 정보 수정
-		mapSong.updateSong(song);
-		mapSong.updateTiming(requestDto.startTime(), requestDto.endTime(), requestDto.repeatCount());
-
-		return convertToDto(mapSong);
 	}
+
 
 
 	// 노래 제거
@@ -106,16 +118,22 @@ public class MapSongService {
 	}
 
 	// ✅ MapSong → MapSongResponseDto 변환 함수
-	private MapSongResponseDto convertToDto(MapSong mapSong) {
+	public MapSongResponseDto convertToDto(MapSong mapSong) {
 		Song song = mapSong.getSong();
 
 		List<AnswerDto> answers = mapSong.getAnswers().stream()
+			.filter(a -> a != null && a.getAnswerText() != null)
 			.map(a -> new AnswerDto(a.getId(), a.getId(), a.getAnswerText()))
 			.toList();
 
+
 		List<HintDto> hints = mapSong.getHints().stream()
+			.filter(h -> h != null && h.getHintText() != null)
 			.map(h -> new HintDto(h.getId(), h.getId(), h.getHintText(), h.getRevealTime()))
 			.toList();
+
+
+		SongResponseDto songDto = new SongResponseDto(song); // ✅ 곡 정보 포함
 
 		return new MapSongResponseDto(
 			mapSong.getId(),
@@ -124,6 +142,7 @@ public class MapSongService {
 			mapSong.getStartTime(),
 			mapSong.getEndTime(),
 			mapSong.getRepeatCount(),
+			songDto,
 			answers,
 			hints
 		);

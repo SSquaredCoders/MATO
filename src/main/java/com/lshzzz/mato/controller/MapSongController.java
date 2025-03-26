@@ -37,7 +37,6 @@ public class MapSongController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(added);
 	}
 
-
 	// ✅ 정답 추가 (맵-노래 기준)
 	@PostMapping("/songs/{mapSongId}/answers")
 	public ResponseEntity<List<AnswerResponseDto>> addAnswers(
@@ -68,7 +67,7 @@ public class MapSongController {
 		return ResponseEntity.ok(hintService.getHintsByMapSong(mapSongId));
 	}
 
-	@PatchMapping("/songs/{mapSongId}")
+	@PatchMapping("/{mapId}/songs/{mapSongId}")
 	public ResponseEntity<MapSongResponseDto> updateMapSong(
 		@PathVariable Long mapSongId,
 		@RequestBody @Valid MapSongRequestDto requestDto
@@ -77,7 +76,7 @@ public class MapSongController {
 		return ResponseEntity.ok(updated);
 	}
 
-	@PatchMapping("/songs/{mapSongId}/answers")
+	@PutMapping("/songs/{mapSongId}/answers")
 	public ResponseEntity<List<AnswerResponseDto>> updateAnswers(
 		@PathVariable Long mapSongId,
 		@RequestBody AnswerRequestDto requestDto
@@ -86,7 +85,7 @@ public class MapSongController {
 	}
 
 
-	@PatchMapping("/songs/{mapSongId}/hints")
+	@PutMapping("/songs/{mapSongId}/hints")
 	public ResponseEntity<List<HintResponseDto>> updateHints(
 		@PathVariable Long mapSongId,
 		@RequestBody HintRequestDto requestDto

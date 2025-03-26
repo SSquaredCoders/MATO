@@ -2,19 +2,16 @@ package com.lshzzz.mato.service;
 
 import com.lshzzz.mato.model.mapsongs.MapSong;
 import com.lshzzz.mato.model.song.Hint;
-import com.lshzzz.mato.model.song.Song;
 import com.lshzzz.mato.model.song.dto.HintDto;
 import com.lshzzz.mato.model.song.dto.HintRequestDto;
 import com.lshzzz.mato.model.song.dto.HintResponseDto;
 import com.lshzzz.mato.repository.HintRepository;
 import com.lshzzz.mato.repository.MapSongRepository;
-import com.lshzzz.mato.repository.SongRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

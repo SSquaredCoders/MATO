@@ -2,10 +2,12 @@ package com.lshzzz.mato.controller;
 
 import com.lshzzz.mato.model.map.dto.MapRequestDto;
 import com.lshzzz.mato.model.map.dto.MapResponseDto;
+import com.lshzzz.mato.model.users.CustomUserDetails;
 import com.lshzzz.mato.service.MapService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -19,13 +21,14 @@ import java.util.List;
 public class MapController {
 	private final MapService mapService;
 
-	// 새로운 맵 생성 (옵션: 노래 목록도 함께 추가 가능)
 	@PostMapping
-	public ResponseEntity<MapResponseDto> createMap(@RequestBody @Valid MapRequestDto requestDto) {
-		// 요청 DTO에는 맵 정보와 추가할 노래 목록(기존 또는 새로운 노래)이 포함됨
-		MapResponseDto createdMap = mapService.createMap(requestDto);
+	public ResponseEntity<MapResponseDto> createMap(@RequestBody @Valid MapRequestDto requestDto,
+		@AuthenticationPrincipal CustomUserDetails userDetails) {
+		String authenticatedUserId = userDetails.getUsername();
+		MapResponseDto createdMap = mapService.createMap(requestDto, authenticatedUserId);
 		return ResponseEntity.status(HttpStatus.CREATED).body(createdMap);
 	}
+
 
 	@GetMapping("/check")
 	public ResponseEntity<?> checkMapExists(@RequestParam String name) {
@@ -60,16 +63,19 @@ public class MapController {
 	// 맵 정보 수정
 	@PatchMapping("/{mapId}")
 	public ResponseEntity<MapResponseDto> updateMap(@PathVariable Long mapId,
-		@RequestBody @Valid MapRequestDto requestDto) {
-		MapResponseDto updatedMap = mapService.updateMap(mapId, requestDto);
+		@RequestBody @Valid MapRequestDto requestDto,
+		@AuthenticationPrincipal CustomUserDetails userDetails) {
+		String authenticatedUserId = userDetails.getUsername();
+		MapResponseDto updatedMap = mapService.updateMap(mapId, requestDto, authenticatedUserId);
 		return ResponseEntity.ok(updatedMap);
 	}
 
 	// 맵 삭제 (삭제 권한 검사를 위해 userId를 요청 파라미터로 전달)
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteMap(@PathVariable Long id,
-		@RequestParam Long userId) {
-		mapService.deleteMap(id, userId);
+		@AuthenticationPrincipal CustomUserDetails userDetails) {
+		String authenticatedUserId = userDetails.getUsername();
+		mapService.deleteMap(id, authenticatedUserId);
 		return ResponseEntity.noContent().build();
 	}
 }

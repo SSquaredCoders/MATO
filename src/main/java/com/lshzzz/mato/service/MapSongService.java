@@ -30,10 +30,29 @@ public class MapSongService {
 	private final MapRepository mapRepository;
 	private final SongRepository songRepository;
 
+	// 인증 검사 헬퍼 메서드
+	private void checkMapOwnership(Map map, String authenticatedUserId) {
+		if (!map.getUserId().equals(authenticatedUserId)) {
+			throw new IllegalArgumentException("맵에 대한 권한이 없습니다.");
+		}
+	}
+	
+	// 맵의 소유권 확인
+	private void checkMapSongOwnership(Long mapSongId, String authenticatedUserId) {
+		MapSong mapSong = mapSongRepository.findById(mapSongId)
+			.orElseThrow(() -> new IllegalArgumentException("MapSong을 찾을 수 없습니다."));
+			
+		Map map = mapSong.getMap();
+		checkMapOwnership(map, authenticatedUserId);
+	}
+
 	// 맵에 노래 추가
-	public MapSongResponseDto addSongToMap(Long mapId, MapSongRequestDto requestDto) {
+	public MapSongResponseDto addSongToMap(Long mapId, MapSongRequestDto requestDto, String authenticatedUserId) {
 		Map map = mapRepository.findById(mapId)
 			.orElseThrow(() -> new IllegalArgumentException("맵을 찾을 수 없습니다."));
+
+        // 인증 검사
+        checkMapOwnership(map, authenticatedUserId);
 
 		Song song = resolveSong(requestDto);
 		System.out.println("✅ song resolved: " + song.getId());
@@ -65,10 +84,13 @@ public class MapSongService {
 
 	// 노래 업데이트
 	@Transactional
-	public MapSongResponseDto updateMapSong(Long mapSongId, MapSongRequestDto requestDto) {
+	public MapSongResponseDto updateMapSong(Long mapSongId, MapSongRequestDto requestDto, String authenticatedUserId) {
 		try {
 			MapSong mapSong = mapSongRepository.findById(mapSongId)
 				.orElseThrow(() -> new IllegalArgumentException("MapSong을 찾을 수 없습니다. ID=" + mapSongId));
+				
+			// 인증 검사
+			checkMapOwnership(mapSong.getMap(), authenticatedUserId);
 
 			Song song = mapSong.getSong();
 
@@ -97,10 +119,10 @@ public class MapSongService {
 		}
 	}
 
-
-
 	// 노래 제거
-	public void removeSongFromMap(Long mapSongId) {
+	public void removeSongFromMap(Long mapSongId, String authenticatedUserId) {
+		// 인증 검사
+		checkMapSongOwnership(mapSongId, authenticatedUserId);
 		mapSongRepository.deleteById(mapSongId);
 	}
 
@@ -112,6 +134,7 @@ public class MapSongService {
 		} else if (requestDto.newSong() != null) {
 			return songRepository.save(Song.builder()
 				.youtubeUrl(requestDto.newSong().youtubeUrl())
+				.title(requestDto.newSong().title() != null ? requestDto.newSong().title() : "제목 없음")
 				.build());
 		}
 		throw new IllegalArgumentException("노래 정보가 제공되지 않았습니다.");
@@ -123,13 +146,13 @@ public class MapSongService {
 
 		List<AnswerDto> answers = mapSong.getAnswers().stream()
 			.filter(a -> a != null && a.getAnswerText() != null)
-			.map(a -> new AnswerDto(a.getId(), a.getId(), a.getAnswerText()))
+			.map(a -> new AnswerDto(a.getId(), mapSong.getId(), a.getAnswerText()))
 			.toList();
 
 
 		List<HintDto> hints = mapSong.getHints().stream()
 			.filter(h -> h != null && h.getHintText() != null)
-			.map(h -> new HintDto(h.getId(), h.getId(), h.getHintText(), h.getRevealTime()))
+			.map(h -> new HintDto(h.getId(), mapSong.getId(), h.getHintText(), h.getRevealTime()))
 			.toList();
 
 

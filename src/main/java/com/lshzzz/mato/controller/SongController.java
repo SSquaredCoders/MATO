@@ -54,4 +54,19 @@ public class SongController {
 		songService.deleteSong(id);
 		return ResponseEntity.noContent().build();
 	}
+
+	// URL로 노래 검색
+	@GetMapping("/search/url")
+	public ResponseEntity<SongResponseDto> searchByUrl(@RequestParam String youtubeUrl) {
+		Optional<SongResponseDto> song = songService.getSongByUrl(youtubeUrl);
+		return song.map(ResponseEntity::ok)
+			.orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+	}
+
+	// 제목으로 노래 검색
+	@GetMapping("/search/title")
+	public ResponseEntity<List<SongResponseDto>> searchByTitle(@RequestParam String title) {
+		List<SongResponseDto> songs = songService.searchSongsByTitle(title);
+		return ResponseEntity.ok(songs);
+	}
 }

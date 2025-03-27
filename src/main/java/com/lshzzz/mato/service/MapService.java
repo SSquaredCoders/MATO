@@ -25,7 +25,11 @@ public class MapService {
 	private final MapSongService mapSongService;
 
 	@Transactional
-	public MapResponseDto createMap(MapRequestDto requestDto) {
+	public MapResponseDto createMap(MapRequestDto requestDto, String authenticatedUserId) {
+		if (!authenticatedUserId.equals(requestDto.userId())) {
+			throw new IllegalArgumentException("맵 생성 권한이 없습니다.");
+		}
+
 		Map map = mapRepository.save(
 			Map.builder()
 				.userId(requestDto.userId())
@@ -59,11 +63,11 @@ public class MapService {
 	}
 
 	@Transactional
-	public MapResponseDto updateMap(Long id, MapRequestDto requestDto) {
+	public MapResponseDto updateMap(Long id, MapRequestDto requestDto, String authenticatedUserId) {
 		Map map = mapRepository.findById(id)
 			.orElseThrow(() -> new IllegalArgumentException("해당 ID의 맵이 존재하지 않습니다."));
 
-		if (!map.getUserId().equals(requestDto.userId())) {
+		if (!authenticatedUserId.equals(map.getUserId())) {
 			throw new IllegalArgumentException("맵 수정 권한이 없습니다.");
 		}
 
@@ -72,11 +76,11 @@ public class MapService {
 	}
 
 	@Transactional
-	public void deleteMap(Long id, Long userId) {
+	public void deleteMap(Long id, String authenticatedUserId) {
 		Map map = mapRepository.findById(id)
 			.orElseThrow(() -> new IllegalArgumentException("해당 ID의 맵이 존재하지 않습니다."));
 
-		if (!map.getUserId().equals(userId)) {
+		if (!authenticatedUserId.equals(map.getUserId())) {
 			throw new IllegalArgumentException("맵 삭제 권한이 없습니다.");
 		}
 

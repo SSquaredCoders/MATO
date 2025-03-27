@@ -34,7 +34,7 @@ public class Map extends BaseEntity {
 	private Long id;
 
 	@Column(name = "user_id", nullable = false)
-	private Long userId; // 유저 ID (방장 또는 생성자)
+	private String userId; // 유저 ID (방장 또는 생성자)
 
 	@Column(name = "name", nullable = false, length = 50)
 	private String name; // 맵 이름

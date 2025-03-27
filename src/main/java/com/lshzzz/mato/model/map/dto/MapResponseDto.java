@@ -8,6 +8,7 @@ import com.lshzzz.mato.model.mapsongs.dto.MapSongResponseDto;
 
 public record MapResponseDto(
 	Long id,
+	String userId,
 	String name,
 	String description,
 	Boolean isPublic,
@@ -18,6 +19,7 @@ public record MapResponseDto(
 	public MapResponseDto(Map map, List<MapSongResponseDto> songs) {
 		this(
 			map.getId(),
+			map.getUserId(),
 			map.getName(),
 			map.getDescription(),
 			map.getIsPublic(),

@@ -62,4 +62,19 @@ public class SongService {
 	public void deleteSong(Long id) {
 		songRepository.deleteById(id);
 	}
+
+	// URL로 노래 검색
+	@Transactional(readOnly = true)
+	public Optional<SongResponseDto> getSongByUrl(String youtubeUrl) {
+		return songRepository.findByYoutubeUrl(youtubeUrl)
+			.map(SongResponseDto::new);
+	}
+
+	// 제목으로 노래 검색 (부분 일치)
+	@Transactional(readOnly = true)
+	public List<SongResponseDto> searchSongsByTitle(String title) {
+		return songRepository.findByTitleContaining(title).stream()
+			.map(SongResponseDto::new)
+			.collect(Collectors.toList());
+	}
 }

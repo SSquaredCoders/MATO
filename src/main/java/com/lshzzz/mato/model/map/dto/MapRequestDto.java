@@ -8,7 +8,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
 public record MapRequestDto(
-	@NotNull Long userId,
+	@NotNull String userId,
 	@NotNull String name,
 	String description,
 	@NotNull Boolean isPublic,

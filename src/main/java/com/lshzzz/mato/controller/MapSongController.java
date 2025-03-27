@@ -8,12 +8,14 @@ import com.lshzzz.mato.model.song.dto.AnswerResponseDto;
 import com.lshzzz.mato.model.song.dto.HintDto;
 import com.lshzzz.mato.model.song.dto.HintRequestDto;
 import com.lshzzz.mato.model.song.dto.HintResponseDto;
+import com.lshzzz.mato.model.users.CustomUserDetails;
 import com.lshzzz.mato.service.AnswerService;
 import com.lshzzz.mato.service.HintService;
 import com.lshzzz.mato.service.MapSongService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -31,9 +33,11 @@ public class MapSongController {
 	@PostMapping("/{mapId}/songs")
 	public ResponseEntity<MapSongResponseDto> addSongToMap(
 		@PathVariable Long mapId,
-		@RequestBody @Valid MapSongRequestDto requestDto
+		@RequestBody @Valid MapSongRequestDto requestDto,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		MapSongResponseDto added = mapSongService.addSongToMap(mapId, requestDto);
+		String authenticatedUserId = userDetails.getUsername();
+		MapSongResponseDto added = mapSongService.addSongToMap(mapId, requestDto, authenticatedUserId);
 		return ResponseEntity.status(HttpStatus.CREATED).body(added);
 	}
 
@@ -41,9 +45,11 @@ public class MapSongController {
 	@PostMapping("/songs/{mapSongId}/answers")
 	public ResponseEntity<List<AnswerResponseDto>> addAnswers(
 		@PathVariable Long mapSongId,
-		@RequestBody AnswerRequestDto requestDto
+		@RequestBody AnswerRequestDto requestDto,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		List<AnswerResponseDto> responses = answerService.addAnswers(mapSongId, requestDto);
+		String authenticatedUserId = userDetails.getUsername();
+		List<AnswerResponseDto> responses = answerService.addAnswers(mapSongId, requestDto, authenticatedUserId);
 		return ResponseEntity.ok(responses);
 	}
 
@@ -56,9 +62,11 @@ public class MapSongController {
 	@PostMapping("/songs/{mapSongId}/hints")
 	public ResponseEntity<List<HintResponseDto>> addHints(
 		@PathVariable Long mapSongId,
-		@RequestBody HintRequestDto requestDto
+		@RequestBody HintRequestDto requestDto,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		List<HintResponseDto> responses = hintService.addHintsToMapSong(mapSongId, requestDto);
+		String authenticatedUserId = userDetails.getUsername();
+		List<HintResponseDto> responses = hintService.addHintsToMapSong(mapSongId, requestDto, authenticatedUserId);
 		return ResponseEntity.ok(responses);
 	}
 
@@ -70,27 +78,33 @@ public class MapSongController {
 	@PatchMapping("/{mapId}/songs/{mapSongId}")
 	public ResponseEntity<MapSongResponseDto> updateMapSong(
 		@PathVariable Long mapSongId,
-		@RequestBody @Valid MapSongRequestDto requestDto
+		@RequestBody @Valid MapSongRequestDto requestDto,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		MapSongResponseDto updated = mapSongService.updateMapSong(mapSongId, requestDto);
+		String authenticatedUserId = userDetails.getUsername();
+		MapSongResponseDto updated = mapSongService.updateMapSong(mapSongId, requestDto, authenticatedUserId);
 		return ResponseEntity.ok(updated);
 	}
 
 	@PutMapping("/songs/{mapSongId}/answers")
 	public ResponseEntity<List<AnswerResponseDto>> updateAnswers(
 		@PathVariable Long mapSongId,
-		@RequestBody AnswerRequestDto requestDto
+		@RequestBody AnswerRequestDto requestDto,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		return ResponseEntity.ok(answerService.updateAnswers(mapSongId, requestDto));
+		String authenticatedUserId = userDetails.getUsername();
+		return ResponseEntity.ok(answerService.updateAnswers(mapSongId, requestDto, authenticatedUserId));
 	}
 
 
 	@PutMapping("/songs/{mapSongId}/hints")
 	public ResponseEntity<List<HintResponseDto>> updateHints(
 		@PathVariable Long mapSongId,
-		@RequestBody HintRequestDto requestDto
+		@RequestBody HintRequestDto requestDto,
+		@AuthenticationPrincipal CustomUserDetails userDetails
 	) {
-		return ResponseEntity.ok(hintService.updateHints(mapSongId, requestDto));
+		String authenticatedUserId = userDetails.getUsername();
+		return ResponseEntity.ok(hintService.updateHints(mapSongId, requestDto, authenticatedUserId));
 	}
 
 
@@ -103,8 +117,12 @@ public class MapSongController {
 
 	// ✅ 맵에서 노래 제거
 	@DeleteMapping("/songs/{mapSongId}")
-	public ResponseEntity<Void> removeSongFromMap(@PathVariable Long mapSongId) {
-		mapSongService.removeSongFromMap(mapSongId);
+	public ResponseEntity<Void> removeSongFromMap(
+		@PathVariable Long mapSongId,
+		@AuthenticationPrincipal CustomUserDetails userDetails
+	) {
+		String authenticatedUserId = userDetails.getUsername();
+		mapSongService.removeSongFromMap(mapSongId, authenticatedUserId);
 		return ResponseEntity.noContent().build();
 	}
 

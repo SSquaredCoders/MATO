@@ -29,7 +29,6 @@ public class MapController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(createdMap);
 	}
 
-
 	@GetMapping("/check")
 	public ResponseEntity<?> checkMapExists(@RequestParam String name) {
 		try {
@@ -39,11 +38,6 @@ public class MapController {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 				.body(Collections.singletonMap("error", "중복 검사 중 오류 발생"));
 		}
-	}
-
-	@GetMapping("/check-duplicate")
-	public ResponseEntity<Boolean> checkDuplicateMap(@RequestParam String name) {
-		return ResponseEntity.ok(mapService.checkDuplicateMap(name));
 	}
 
 	// 특정 맵 정보 조회 (ID 기반)
@@ -58,6 +52,23 @@ public class MapController {
 	public ResponseEntity<List<MapResponseDto>> getPublicMaps() {
 		List<MapResponseDto> publicMaps = mapService.getPublicMaps();
 		return ResponseEntity.ok(publicMaps);
+	}
+
+	// 사용자별 맵 목록 조회
+	@GetMapping("/user/{userId}")
+	public ResponseEntity<List<MapResponseDto>> getMapsByUser(@PathVariable String userId,
+		@AuthenticationPrincipal CustomUserDetails userDetails) {
+		String authenticatedUserId = userDetails.getUsername();
+		// 본인 조회 또는 공개된 맵만 조회 가능
+		List<MapResponseDto> maps;
+		if (authenticatedUserId.equals(userId)) {
+			// 본인인 경우 모든 맵 조회
+			maps = mapService.getMapsByUserId(userId);
+		} else {
+			// 타인인 경우 공개된 맵만 조회
+			maps = mapService.getPublicMapsByUserId(userId);
+		}
+		return ResponseEntity.ok(maps);
 	}
 
 	// 맵 정보 수정

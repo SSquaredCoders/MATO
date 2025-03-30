@@ -3,7 +3,7 @@ FROM gradle:8.12.1-jdk21 AS builder
 WORKDIR /app
 
 # 프로젝트 의존성 캐싱을 위해 먼저 복사
-COPY build.gradle settings.gradle gradle.properties ./
+COPY build.gradle settings.gradle ./
 COPY gradle ./gradle
 RUN gradle --no-daemon build || return 0
 

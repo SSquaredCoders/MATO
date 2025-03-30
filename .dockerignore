@@ -1,0 +1,24 @@
+# 빌드 아티팩트 (gradle build output)
+build/
+out/
+.gradle/
+
+# IDE 설정 파일
+.idea/
+*.iml
+
+# 환경 변수 파일
+.env
+
+# OS/에디터 생성 파일
+.DS_Store
+Thumbs.db
+
+# 로그 파일
+*.log
+
+# 캐시
+.cache/
+
+# 테스트 결과
+test-output/

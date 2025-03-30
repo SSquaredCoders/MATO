@@ -9,6 +9,9 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Configuration
 public class RedisConfig {
 
@@ -23,6 +26,8 @@ public class RedisConfig {
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
+        log.info("🔧 Redis 연결 설정 - host: {}, port: {}", redisHost, redisPort);
+
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
         config.setHostName(redisHost);
         config.setPort(redisPort);
@@ -33,6 +38,8 @@ public class RedisConfig {
 
     @Bean
     public StringRedisTemplate redisTemplate() {
+        log.info("✅ RedisTemplate Bean 생성 완료");
+
         StringRedisTemplate template = new StringRedisTemplate();
         template.setConnectionFactory(redisConnectionFactory());
         template.setKeySerializer(new StringRedisSerializer());

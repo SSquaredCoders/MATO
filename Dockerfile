@@ -18,7 +18,7 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # 빌드된 JAR 파일 복사
-COPY --from=build /app/build/libs/*.jar app.jar
+COPY --from=builder /app/build/libs/*.jar app.jar
 
 # 프로덕션 프로파일 사용 (yml에서는 환경변수 기반 설정)
 ENV SPRING_PROFILES_ACTIVE=prod

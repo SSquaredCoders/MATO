@@ -1,50 +1,58 @@
+version: '3.8'
+
 services:
-  backend:
+  app:
     build: .
+    container_name: matoapp-backend
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
     environment:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_NAME=${DB_NAME}
-      - DB_USERNAME=${DB_USERNAME}
-      - DB_PASSWORD=${DB_PASSWORD}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
       - SPRING_DATA_REDIS_HOST=${SPRING_DATA_REDIS_HOST}
       - SPRING_DATA_REDIS_PORT=${SPRING_DATA_REDIS_PORT}
       - SPRING_DATA_REDIS_PASSWORD=${SPRING_DATA_REDIS_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
+      - SERVER_PORT=${SERVER_PORT}
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
+      - mysql
+      - redis
+    networks:
+      - mato-network
+    restart: unless-stopped
 
-  db:
+  mysql:
     image: mysql:8.0
-    container_name: mysql-db
-    ports:
-      - "${DB_PORT}:${DB_PORT}"
+    container_name: mato-mysql
     environment:
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+    ports:
+      - "${DB_PORT}:3306"
     volumes:
-      - db_data:/var/lib/mysql
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - mysql-data:/var/lib/mysql
+    networks:
+      - mato-network
+    restart: unless-stopped
 
   redis:
-    image: redis:7.0-alpine
-    container_name: redis-server
-    ports:
-      - "${SPRING_DATA_REDIS_PORT}:${SPRING_DATA_REDIS_PORT}"
+    image: redis:7.0
+    container_name: mato-redis
     command: redis-server --requirepass ${SPRING_DATA_REDIS_PASSWORD}
+    ports:
+      - "${SPRING_DATA_REDIS_PORT}:6379"
     volumes:
-      - redis_data:/data
+      - redis-data:/data
+    networks:
+      - mato-network
+    restart: unless-stopped
+
+networks:
+  mato-network:
+    driver: bridge
 
 volumes:
-  db_data:
-  redis_data:
+  mysql-data:
+  redis-data:

@@ -87,3 +87,6 @@ gradle-app.setting
 
 # dev config files
 src/main/resources/application-dev.yml
+
+# .gitignore
+.env

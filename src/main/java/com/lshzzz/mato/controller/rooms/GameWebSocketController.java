@@ -4,11 +4,13 @@ import com.lshzzz.mato.model.chat.dto.ChatMessage;
 import com.lshzzz.mato.model.game.dto.GameStatusResponse;
 import com.lshzzz.mato.service.game.GameService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 public class GameWebSocketController {
@@ -37,25 +39,22 @@ public class GameWebSocketController {
 	@MessageMapping("/game.start")
 	public void handleGameStart(@Payload ChatMessage message) {
 		gameService.startGame(message.roomName());
-		messagingTemplate.convertAndSend("/topic/rooms/" + message.roomName(), message);
+		// 중복 브로드캐스트 제거 (GameService에서 GameStatusResponse 전송함)
 	}
 
 	@MessageMapping("/game.end")
 	public void handleGameEnd(@Payload ChatMessage message) {
 		gameService.endGame(message.roomName());
-		messagingTemplate.convertAndSend("/topic/rooms/" + message.roomName(), message);
 	}
 
 	@MessageMapping("/game.next")
 	public void handleNextSong(@Payload ChatMessage message) {
 		gameService.nextSong(message.roomName());
-		messagingTemplate.convertAndSend("/topic/rooms/" + message.roomName(), message);
 	}
 
 	@MessageMapping("/game.skip")
 	public void handleSkipSong(@Payload ChatMessage message) {
 		gameService.skipSong(message.roomName());
-		messagingTemplate.convertAndSend("/topic/rooms/" + message.roomName(), message);
 	}
 
 	@MessageMapping("/game.correct")
@@ -66,20 +65,18 @@ public class GameWebSocketController {
 	@MessageMapping("/score.update")
 	public void handleScoreUpdate(@Payload ChatMessage message) {
 		try {
-			// content에서 점수 정보 파싱
 			String content = message.content();
 			if (content != null && !content.isEmpty()) {
-				// 점수 업데이트 처리
 				gameService.updateScore(
 					message.roomName(),
 					message.sender(),
-					1, // 정답 맞춤 시 1점
+					1,
 					"정답 맞춤"
 				);
 			}
 			messagingTemplate.convertAndSend("/topic/rooms/" + message.roomName(), message);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("점수 업데이트 중 오류 발생", e);
 		}
 	}
 
@@ -89,4 +86,3 @@ public class GameWebSocketController {
 		messagingTemplate.convertAndSend("/topic/rooms/" + message.roomName(), status);
 	}
 }
-

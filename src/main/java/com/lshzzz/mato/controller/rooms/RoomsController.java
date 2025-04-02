@@ -1,5 +1,6 @@
 package com.lshzzz.mato.controller.rooms;
 
+import com.lshzzz.mato.model.room.dto.ParticipantReadyRequest;
 import com.lshzzz.mato.model.room.dto.RoomPasswordValidationRequest;
 import com.lshzzz.mato.model.room.dto.RoomsCreateRequest;
 import com.lshzzz.mato.model.room.dto.RoomsResponse;

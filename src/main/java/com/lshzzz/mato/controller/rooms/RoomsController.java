@@ -44,6 +44,32 @@ public class RoomsController {
         return ResponseEntity.ok(participants);
     }
 
+    // 참가자 추가
+    @PostMapping("/{name}/participants")
+    public ResponseEntity<Void> addParticipant(@PathVariable String name, HttpServletRequest request) {
+        String nickname = roomsService.resolveNickname(request);
+        roomsService.addParticipant(name, nickname);
+        return ResponseEntity.ok().build();
+    }
+
+    // 참가자 제거
+    @DeleteMapping("/{name}/participants")
+    public ResponseEntity<Void> removeParticipant(@PathVariable String name, HttpServletRequest request) {
+        String nickname = roomsService.resolveNickname(request);
+        roomsService.removeParticipant(name, nickname);
+        return ResponseEntity.ok().build();
+    }
+
+    // 참가자 준비 상태 변경
+    @PatchMapping("/{name}/ready")
+    public ResponseEntity<Void> setParticipantReady(
+        @PathVariable String name,
+        @RequestBody ParticipantReadyRequest request) {
+        roomsService.setParticipantReady(name, request.nickname(), request.ready());
+        return ResponseEntity.ok().build();
+    }
+
+
     // 방 생성
     @PostMapping
     public ResponseEntity<RoomsResponse> createRoom(@RequestBody @Valid RoomsCreateRequest request,

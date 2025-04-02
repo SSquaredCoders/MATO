@@ -8,13 +8,16 @@ import com.lshzzz.mato.service.rooms.RoomsService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.HashMap;
 
+@Slf4j
 @RestController
-@RequestMapping("/rooms")
+@RequestMapping("/api/rooms")
 @RequiredArgsConstructor
 public class RoomsController {
 
@@ -30,6 +33,15 @@ public class RoomsController {
     @GetMapping("/{name}")
     public ResponseEntity<RoomsResponse> getRoomByName(@PathVariable String name) {
         return ResponseEntity.ok(roomsService.findByName(name));
+    }
+
+    // 방의 참가자 목록 조회
+    @GetMapping("/{name}/participants")
+    public ResponseEntity<List<HashMap<String, Object>>> getRoomParticipants(@PathVariable String name) {
+        log.info("방 {} 참가자 목록 조회 요청", name);
+        List<HashMap<String, Object>> participants = roomsService.getRoomParticipants(name);
+        log.info("방 {} 참가자 목록 조회 결과: {} 명", name, participants.size());
+        return ResponseEntity.ok(participants);
     }
 
     // 방 생성

@@ -7,24 +7,24 @@ import com.lshzzz.mato.model.room.Rooms;
 import com.lshzzz.mato.model.room.dto.RoomsCreateRequest;
 import com.lshzzz.mato.model.room.dto.RoomsResponse;
 import com.lshzzz.mato.model.room.dto.RoomsUpdateRequest;
-import com.lshzzz.mato.repository.MapRepository;
 import com.lshzzz.mato.repository.RoomsRepository;
-import com.lshzzz.mato.utils.rooms.RoomsMapper;
+import com.lshzzz.mato.repository.MapRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-
-import java.util.*;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class RoomsService {
 
     private final RoomsRepository roomsRepository;
@@ -48,21 +48,52 @@ public class RoomsService {
         }
     }
 
-    // 전체 방 조회
+    @Transactional(readOnly = true)
     public List<RoomsResponse> findAllRooms() {
         return roomsRepository.findAll().stream()
-            .map(RoomsMapper::toResponse)
+            .map(RoomsResponse::from)
             .collect(Collectors.toList());
     }
 
-    // 방 제목을 통한 방 조회
+    @Transactional(readOnly = true)
     public RoomsResponse findByName(String name) {
         return roomsRepository.findByName(name)
-            .map(RoomsMapper::toResponse)
+            .map(RoomsResponse::from)
             .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
     }
 
-    // 방 생성
+    @Transactional(readOnly = true)
+    public List<HashMap<String, Object>> getRoomParticipants(String name) {
+        try {
+            Rooms room = roomsRepository.findByName(name)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
+
+            List<String> nicknames = room.getParticipantNicknames();
+            List<Boolean> readyStatus = room.getParticipantReadyStatus();
+
+            if (nicknames.size() != readyStatus.size()) {
+                log.error("참가자 닉네임과 준비 상태 목록의 길이가 일치하지 않습니다: {} vs {}",
+                    nicknames.size(), readyStatus.size());
+                int minSize = Math.min(nicknames.size(), readyStatus.size());
+                nicknames = nicknames.subList(0, minSize);
+                readyStatus = readyStatus.subList(0, minSize);
+            }
+
+            List<HashMap<String, Object>> result = new ArrayList<>();
+            for (int i = 0; i < nicknames.size(); i++) {
+                HashMap<String, Object> participant = new HashMap<>();
+                participant.put("nickname", nicknames.get(i));
+                participant.put("ready", readyStatus.get(i));
+                result.add(participant);
+            }
+
+            return result;
+        } catch (Exception e) {
+            log.error("참가자 목록 조회 중 오류 발생", e);
+            throw new CustomException(ErrorCode.SERVER_ERROR);
+        }
+    }
+
     @Transactional
     public RoomsResponse createRoom(RoomsCreateRequest request, String hostNickname) {
         Map map = mapRepository.findById(request.mapId())
@@ -71,62 +102,76 @@ public class RoomsService {
         Rooms room = Rooms.builder()
             .name(request.name())
             .password(request.password())
+            .maxParticipants(request.maxParticipants())
             .host(hostNickname)
-            .participants(1)
-            .gameStatus(request.gameStatus())
             .map(map)
             .build();
-        return RoomsMapper.toResponse(roomsRepository.save(room));
+        room.addParticipant(hostNickname);
+
+        return RoomsResponse.from(roomsRepository.save(room));
     }
 
-    // 방 수정
     @Transactional
     public RoomsResponse updateRoom(Long roomId, RoomsUpdateRequest request, String nickname) {
         Rooms room = roomsRepository.findById(roomId)
             .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
         if (!room.getHost().equals(nickname)) {
-            throw new IllegalArgumentException("방장만 수정할 수 있습니다.");
-        }
-
-        room.updateName(request.name());
-        room.updatePassword(request.password());
-
-        if (request.mapId() == null) {
-            throw new CustomException(ErrorCode.MAP_NOT_FOUND);
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
 
         Map map = mapRepository.findById(request.mapId())
             .orElseThrow(() -> new CustomException(ErrorCode.MAP_NOT_FOUND));
+
+        room.updateName(request.name());
+        room.updatePassword(request.password());
         room.updateMap(map);
 
-        return RoomsMapper.toResponse(room);
+        return RoomsResponse.from(room);
     }
 
-    // 방 삭제
     @Transactional
     public void deleteRoom(Long roomId, String nickname) {
         Rooms room = roomsRepository.findById(roomId)
             .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
         if (!room.getHost().equals(nickname)) {
-            throw new IllegalArgumentException("방장만 삭제할 수 있습니다.");
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
 
         roomsRepository.delete(room);
     }
 
-    // 비밀번호 검증
+    @Transactional(readOnly = true)
     public boolean validatePassword(String roomName, String inputPassword) {
         Rooms room = roomsRepository.findByName(roomName)
             .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
-        // 비밀번호가 없는 방이면 누구나 입장 가능
         if (room.getPassword() == null || room.getPassword().isBlank()) {
             return true;
         }
 
-        // 비밀번호가 있는 경우, 정확히 일치하는지 확인
         return room.getPassword().equals(inputPassword);
+    }
+
+    @Transactional
+    public void addParticipant(String roomName, String nickname) {
+        Rooms room = roomsRepository.findByName(roomName)
+            .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
+        room.addParticipant(nickname);
+    }
+
+    @Transactional
+    public void removeParticipant(String roomName, String nickname) {
+        Rooms room = roomsRepository.findByName(roomName)
+            .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
+        room.removeParticipant(nickname);
+    }
+
+    @Transactional
+    public void setParticipantReady(String roomName, String nickname, boolean ready) {
+        Rooms room = roomsRepository.findByName(roomName)
+            .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
+        room.setParticipantReady(nickname, ready);
     }
 }

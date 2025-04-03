@@ -1,5 +1,6 @@
 package com.lshzzz.mato.controller.rooms;
 
+import com.lshzzz.mato.model.room.dto.ParticipantReadyRequest;
 import com.lshzzz.mato.model.room.dto.RoomPasswordValidationRequest;
 import com.lshzzz.mato.model.room.dto.RoomsCreateRequest;
 import com.lshzzz.mato.model.room.dto.RoomsResponse;
@@ -8,13 +9,16 @@ import com.lshzzz.mato.service.rooms.RoomsService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.HashMap;
 
+@Slf4j
 @RestController
-@RequestMapping("/rooms")
+@RequestMapping("/api/rooms")
 @RequiredArgsConstructor
 public class RoomsController {
 
@@ -31,6 +35,41 @@ public class RoomsController {
     public ResponseEntity<RoomsResponse> getRoomByName(@PathVariable String name) {
         return ResponseEntity.ok(roomsService.findByName(name));
     }
+
+    // 방의 참가자 목록 조회
+    @GetMapping("/{name}/participants")
+    public ResponseEntity<List<HashMap<String, Object>>> getRoomParticipants(@PathVariable String name) {
+        log.info("방 {} 참가자 목록 조회 요청", name);
+        List<HashMap<String, Object>> participants = roomsService.getRoomParticipants(name);
+        log.info("방 {} 참가자 목록 조회 결과: {} 명", name, participants.size());
+        return ResponseEntity.ok(participants);
+    }
+
+    // 참가자 추가
+    @PostMapping("/{name}/participants")
+    public ResponseEntity<Void> addParticipant(@PathVariable String name, HttpServletRequest request) {
+        String nickname = roomsService.resolveNickname(request);
+        roomsService.addParticipant(name, nickname);
+        return ResponseEntity.ok().build();
+    }
+
+    // 참가자 제거
+    @DeleteMapping("/{name}/participants")
+    public ResponseEntity<Void> removeParticipant(@PathVariable String name, HttpServletRequest request) {
+        String nickname = roomsService.resolveNickname(request);
+        roomsService.removeParticipant(name, nickname);
+        return ResponseEntity.ok().build();
+    }
+
+    // 참가자 준비 상태 변경
+    @PatchMapping("/{name}/ready")
+    public ResponseEntity<Void> setParticipantReady(
+        @PathVariable String name,
+        @RequestBody ParticipantReadyRequest request) {
+        roomsService.setParticipantReady(name, request.nickname(), request.ready());
+        return ResponseEntity.ok().build();
+    }
+
 
     // 방 생성
     @PostMapping
@@ -65,4 +104,19 @@ public class RoomsController {
         boolean result = roomsService.validatePassword(request.name(), request.password());
         return ResponseEntity.ok(result);
     }
+
+    // 아래 메서드들은 API v2에서 사용될 예정입니다.
+    // 프론트엔드가 준비되면 주석을 해제하세요.
+
+    /*
+    @GetMapping("/v2")
+    public ResponseEntity<List<RoomListResponseDto>> getAllRoomsV2() {
+        return ResponseEntity.ok(roomsService.findAllRoomsAsDto());
+    }
+
+    @GetMapping("/v2/{name}")
+    public ResponseEntity<RoomListResponseDto> getRoomByNameV2(@PathVariable String name) {
+        return ResponseEntity.ok(roomsService.findRoomDetailByName(name));
+    }
+    */
 }

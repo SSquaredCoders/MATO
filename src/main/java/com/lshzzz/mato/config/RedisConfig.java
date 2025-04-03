@@ -6,7 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import lombok.extern.slf4j.Slf4j;
@@ -37,13 +38,18 @@ public class RedisConfig {
     }
 
     @Bean
-    public StringRedisTemplate redisTemplate() {
-        log.info("✅ RedisTemplate Bean 생성 완료");
-
-        StringRedisTemplate template = new StringRedisTemplate();
-        template.setConnectionFactory(redisConnectionFactory());
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        
+        // Key 직렬화 설정
         template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(new StringRedisSerializer());
+        template.setValueSerializer(new Jackson2JsonRedisSerializer<>(Object.class));
+        
+        // Hash 직렬화 설정 
+        template.setHashKeySerializer(new StringRedisSerializer());
+        template.setHashValueSerializer(new Jackson2JsonRedisSerializer<>(Object.class));
+        
         return template;
     }
 }

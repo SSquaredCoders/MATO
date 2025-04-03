@@ -142,32 +142,7 @@ public class MapSongService {
 
 	// ✅ MapSong → MapSongResponseDto 변환 함수
 	public MapSongResponseDto convertToDto(MapSong mapSong) {
-		Song song = mapSong.getSong();
-
-		List<AnswerDto> answers = mapSong.getAnswers().stream()
-			.filter(a -> a != null && a.getAnswerText() != null)
-			.map(a -> new AnswerDto(a.getId(), mapSong.getId(), a.getAnswerText()))
-			.toList();
-
-
-		List<HintDto> hints = mapSong.getHints().stream()
-			.filter(h -> h != null && h.getHintText() != null)
-			.map(h -> new HintDto(h.getId(), mapSong.getId(), h.getHintText(), h.getRevealTime()))
-			.toList();
-
-
-		SongResponseDto songDto = new SongResponseDto(song); // ✅ 곡 정보 포함
-
-		return new MapSongResponseDto(
-			mapSong.getId(),
-			mapSong.getMap().getId(),
-			song.getId(),
-			mapSong.getStartTime(),
-			mapSong.getEndTime(),
-			mapSong.getRepeatCount(),
-			songDto,
-			answers,
-			hints
-		);
+		// 새로 통합된 fromEntity 메서드 사용
+		return MapSongResponseDto.fromEntity(mapSong);
 	}
 }

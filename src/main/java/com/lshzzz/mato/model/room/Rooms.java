@@ -2,26 +2,29 @@ package com.lshzzz.mato.model.room;
 
 import com.lshzzz.mato.model.BaseEntity;
 import com.lshzzz.mato.model.map.Map;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.CollectionTable;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+/**
+ * @deprecated Redis 전환으로 인해 더 이상 사용되지 않음.
+ */
+@Deprecated
 @Entity
 @Table(name = "rooms")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@Builder
 public class Rooms extends BaseEntity {
 
     // ID(PK)
@@ -36,6 +39,10 @@ public class Rooms extends BaseEntity {
     // Password
     @Column(length = 20)
     private String password;
+
+    // Max Participants
+    @Column(nullable = false)
+    private Integer maxParticipants;
 
     // Host name
     @Column(nullable = false, length = 20)
@@ -55,46 +62,35 @@ public class Rooms extends BaseEntity {
     @JoinColumn(name = "map_id", nullable = false)
     private Map map;
 
-    @Builder
-    public Rooms(String name, String password, String host, Integer participants,
-        GameStatus gameStatus, Map map) {
-        this.name = name;
-        this.password = password;
-        this.host = host;
-        this.participants = (participants != null) ? participants : 1;
-        this.gameStatus = (gameStatus != null) ? gameStatus : GameStatus.WAITING;
-        this.map = map;
-    }
+    @ElementCollection
+    @CollectionTable(name = "room_participants", joinColumns = @JoinColumn(name = "room_id"))
+    @Column(name = "nickname")
+    private List<String> participantNicknames = new ArrayList<>();
 
-    // 방 제목 수정 메서드
-    public void updateName(String name) {
-        this.name = name;
-    }
+    @ElementCollection
+    @CollectionTable(name = "room_participant_status", joinColumns = @JoinColumn(name = "room_id"))
+    @Column(name = "ready")
+    private List<Boolean> participantReadyStatus = new ArrayList<>();
 
-    // 방 비밀번호 수정 메서드
-    public void updatePassword(String password) {
-        this.password = password;
-    }
-
-    // 참가 인원 증가 메서드
-    public void increaseParticipants() {
-        this.participants++;
-    }
-
-    // 참가 인원 감소 메서드
-    public void decreaseParticipants() {
-        if (this.participants > 0) {
-            this.participants--;
+    /**
+     * 모든 참가자의 목록을 반환
+     * 
+     * @return 참가자 정보 목록 (닉네임과 준비 상태)
+     */
+    public List<HashMap<String, Object>> getParticipants() {
+        List<HashMap<String, Object>> result = new ArrayList<>();
+        
+        // 두 리스트의 길이 확인 및 조정
+        int minSize = Math.min(participantNicknames.size(), participantReadyStatus.size());
+        
+        for (int i = 0; i < minSize; i++) {
+            HashMap<String, Object> participant = new HashMap<>();
+            participant.put("nickname", participantNicknames.get(i));
+            participant.put("ready", participantReadyStatus.get(i));
+            result.add(participant);
         }
+        
+        return result;
     }
 
-    // 게임 상태 수정 메서드
-    public void updateGameStatus(GameStatus gameStatus) {
-        this.gameStatus = gameStatus;
-    }
-
-    // 맵 교체 메서드
-    public void updateMap(Map map) {
-        this.map = map;
-    }
 }

@@ -2,22 +2,25 @@ package com.lshzzz.mato.service.game;
 
 import com.lshzzz.mato.model.game.dto.GameStatusResponse;
 import com.lshzzz.mato.model.room.GameStatus;
-import com.lshzzz.mato.model.room.Rooms;
 import com.lshzzz.mato.repository.RoomsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * @deprecated JPA 기반 게임 서비스. Redis 기반으로 전환 중이므로 {@link RedisGameService}를 사용하세요.
+ */
 @Service
 @RequiredArgsConstructor
+@Deprecated
 public class GameService {
     private final RoomsRepository roomsRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final RedisGameService redisGameService;
 
     // 게임 상태 저장소
     private final Map<String, GameStatus> roomStatuses = new ConcurrentHashMap<>();
@@ -28,138 +31,34 @@ public class GameService {
 
     @Transactional
     public void startGame(String roomName) {
-        Rooms room = roomsRepository.findByName(roomName)
-            .orElseThrow(() -> new RuntimeException("방을 찾을 수 없습니다."));
-
-        room.updateGameStatus(GameStatus.PLAYING);
-        roomStatuses.put(roomName, GameStatus.PLAYING);
-        currentSongIndices.put(roomName, 0);
-
-        // 초기 점수 초기화
-        roomScores.put(roomName, new ConcurrentHashMap<>());
-
-        // 게임 시작 메시지 브로드캐스트
-        messagingTemplate.convertAndSend(
-            "/topic/rooms/" + roomName,
-            new GameStatusResponse(
-                room.getId(),
-                roomName,
-                GameStatus.PLAYING,
-                roomScores.get(roomName),
-                null,
-                currentSongIndices.get(roomName),
-                room.getMap().getMapSongs().size(),
-                LocalDateTime.now()
-            )
-        );
+        redisGameService.startGame(roomName);
     }
 
     @Transactional
     public void endGame(String roomName) {
-        Rooms room = roomsRepository.findByName(roomName)
-            .orElseThrow(() -> new RuntimeException("방을 찾을 수 없습니다."));
-
-        room.updateGameStatus(GameStatus.FINISHED);
-        roomStatuses.put(roomName, GameStatus.FINISHED);
-
-        // 게임 종료 메시지 브로드캐스트
-        messagingTemplate.convertAndSend(
-            "/topic/rooms/" + roomName,
-            new GameStatusResponse(
-                room.getId(),
-                roomName,
-                GameStatus.FINISHED,
-                roomScores.get(roomName),
-                null,
-                currentSongIndices.get(roomName),
-                room.getMap().getMapSongs().size(),
-                LocalDateTime.now()
-            )
-        );
+        redisGameService.endGame(roomName);
     }
 
     @Transactional
     public void updateScore(String roomName, String playerNickname, int points, String reason) {
-        Map<String, Integer> scores = roomScores.getOrDefault(roomName, new ConcurrentHashMap<>());
-        scores.merge(playerNickname, points, Integer::sum);
-
-        Rooms room = roomsRepository.findByName(roomName)
-            .orElseThrow(() -> new RuntimeException("방을 찾을 수 없습니다."));
-
-        // 점수 업데이트 메시지 브로드캐스트
-        messagingTemplate.convertAndSend(
-            "/topic/rooms/" + roomName,
-            new GameStatusResponse(
-                room.getId(),
-                roomName,
-                roomStatuses.getOrDefault(roomName, GameStatus.WAITING),
-                scores,
-                null,
-                currentSongIndices.get(roomName),
-                room.getMap().getMapSongs().size(),
-                LocalDateTime.now()
-            )
-        );
+        redisGameService.updateScore(roomName, playerNickname, points, reason);
     }
 
     @Transactional
     public void nextSong(String roomName) {
-        Rooms room = roomsRepository.findByName(roomName)
-            .orElseThrow(() -> new RuntimeException("방을 찾을 수 없습니다."));
-
-        int currentIndex = currentSongIndices.getOrDefault(roomName, 0);
-        int totalSongs = room.getMap().getMapSongs().size();
-
-        if (currentIndex < totalSongs - 1) {
-            currentSongIndices.put(roomName, currentIndex + 1);
-            
-            // 다음 곡 정보 브로드캐스트
-            messagingTemplate.convertAndSend(
-                "/topic/rooms/" + roomName,
-                new GameStatusResponse(
-                    room.getId(),
-                    roomName,
-                    GameStatus.PLAYING,
-                    roomScores.get(roomName),
-                    null,
-                    currentIndex + 1,
-                    totalSongs,
-                    LocalDateTime.now()
-                )
-            );
-        } else {
-            endGame(roomName);
-        }
+        redisGameService.nextSong(roomName);
     }
 
     @Transactional
     public void skipSong(String roomName) {
-        nextSong(roomName);
+        redisGameService.skipSong(roomName);
     }
 
     public GameStatusResponse getGameStatus(String roomName) {
-        Rooms room = roomsRepository.findByName(roomName)
-            .orElseThrow(() -> new RuntimeException("방을 찾을 수 없습니다."));
-
-        return new GameStatusResponse(
-            room.getId(),
-            roomName,
-            roomStatuses.getOrDefault(roomName, GameStatus.WAITING),
-            roomScores.getOrDefault(roomName, new ConcurrentHashMap<>()),
-            null,
-            currentSongIndices.getOrDefault(roomName, 0),
-            room.getMap().getMapSongs().size(),
-            LocalDateTime.now()
-        );
+        return redisGameService.getGameStatus(roomName);
     }
 
     public void resetGame(String roomName) {
-        roomStatuses.remove(roomName);
-        roomScores.remove(roomName);
-        currentSongIndices.remove(roomName);
-
-        Rooms room = roomsRepository.findByName(roomName)
-            .orElseThrow(() -> new RuntimeException("방을 찾을 수 없습니다."));
-        room.updateGameStatus(GameStatus.WAITING);
+        redisGameService.resetGame(roomName);
     }
 } 

@@ -37,5 +37,8 @@ public class Answer extends BaseEntity {
 	@Column(nullable = false)
 	private String answerText; // 🎯 정답 문구 (ex. "사랑인가봐", "Love Maybe")
 
+	public String getText() {
+		return answerText;
+	}
 }
 

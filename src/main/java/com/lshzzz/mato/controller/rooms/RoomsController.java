@@ -104,4 +104,19 @@ public class RoomsController {
         boolean result = roomsService.validatePassword(request.name(), request.password());
         return ResponseEntity.ok(result);
     }
+
+    // 아래 메서드들은 API v2에서 사용될 예정입니다.
+    // 프론트엔드가 준비되면 주석을 해제하세요.
+
+    /*
+    @GetMapping("/v2")
+    public ResponseEntity<List<RoomListResponseDto>> getAllRoomsV2() {
+        return ResponseEntity.ok(roomsService.findAllRoomsAsDto());
+    }
+
+    @GetMapping("/v2/{name}")
+    public ResponseEntity<RoomListResponseDto> getRoomByNameV2(@PathVariable String name) {
+        return ResponseEntity.ok(roomsService.findRoomDetailByName(name));
+    }
+    */
 }

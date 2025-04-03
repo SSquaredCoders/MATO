@@ -1,6 +1,7 @@
 package com.lshzzz.mato.model.map.dto;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 import com.lshzzz.mato.model.map.Map;
@@ -27,5 +28,21 @@ public record MapResponseDto(
 			map.getCreatedAt(),
 			map.getUpdatedAt()
 		);
+	}
+	
+	/**
+	 * MapSummaryDto에서 MapResponseDto 생성
+	 */
+	public static MapResponseDto fromSummaryDto(MapSummaryDto summaryDto) {
+	    return new MapResponseDto(
+	        summaryDto.id(),
+	        summaryDto.userId(),
+	        summaryDto.name(),
+	        summaryDto.description(),
+	        summaryDto.isPublic(),
+	        Collections.emptyList(), // 요약 정보에서는 곡 목록 생략
+	        summaryDto.createdAt(),
+	        summaryDto.updatedAt()
+	    );
 	}
 }

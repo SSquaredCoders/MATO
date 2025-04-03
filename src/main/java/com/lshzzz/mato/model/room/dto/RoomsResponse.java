@@ -1,39 +1,39 @@
 package com.lshzzz.mato.model.room.dto;
 
-import com.lshzzz.mato.model.map.Map;
-import com.lshzzz.mato.model.room.Rooms;
+import com.lshzzz.mato.model.map.dto.MapResponseDto;
 import com.lshzzz.mato.model.room.GameStatus;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
 
+/**
+ * 방 정보 응답 DTO
+ */
 public record RoomsResponse(
-    Long id,
+    String id,
     String name,
     String password,
     int maxParticipants,
     String host,
     int participantCount,
     GameStatus gameStatus,
-    Long mapId,
-    String mapName,
+    MapResponseDto map,
     List<HashMap<String, Object>> participantList
 ) {
-    public static RoomsResponse from(Rooms rooms) {
-        List<HashMap<String, Object>> participants = rooms.getParticipants();
-        if (participants == null) participants = new ArrayList<>();
-
+    public static RoomsResponse fromDto(
+        RoomDto roomDto,
+        MapResponseDto  mapDto,
+        List<HashMap<String, Object>> participants
+    ) {
         return new RoomsResponse(
-            rooms.getId(),
-            rooms.getName(),
-            rooms.getPassword(),
-            rooms.getMaxParticipants() != null ? rooms.getMaxParticipants() : 10,
-            rooms.getHost(),
+            roomDto.id(),
+            roomDto.name(),
+            roomDto.password(),
+            roomDto.maxParticipants(),
+            roomDto.host(),
             participants.size(),
-            rooms.getGameStatus(),
-            rooms.getMap().getId(),
-            rooms.getMap().getName(),
+            GameStatus.valueOf(roomDto.gameStatus()),
+            mapDto,
             participants
         );
     }

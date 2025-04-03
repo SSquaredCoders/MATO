@@ -38,4 +38,8 @@ public class Hint extends BaseEntity {
 
 	@Column(nullable = false)
 	private int revealTime; // 🎯 몇 초 후에 힌트를 보여줄 것인지 설정 (ex. 10초 후)
+	
+	public String getText() {
+		return hintText;
+	}
 }

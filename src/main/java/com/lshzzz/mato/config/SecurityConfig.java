@@ -42,7 +42,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .anyRequest().permitAll()
             )
-            .addFilterBefore(new JwtFilter(jwtUtil), LoginFilter.class)
+            .addFilterBefore(new JwtFilter(jwtUtil, refreshTokenService), LoginFilter.class)
             .addFilterAt(
                 new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil,
                     refreshTokenService),

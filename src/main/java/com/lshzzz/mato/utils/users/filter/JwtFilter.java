@@ -1,71 +1,101 @@
 package com.lshzzz.mato.utils.users.filter;
 
 import com.lshzzz.mato.model.users.CustomUserDetails;
-import com.lshzzz.mato.model.users.Role;
-import com.lshzzz.mato.model.users.Users;
+import com.lshzzz.mato.service.users.RefreshTokenService;
 import com.lshzzz.mato.utils.users.JwtUtil;
-import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+import java.util.Objects;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final RefreshTokenService refreshTokenService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-        FilterChain filterChain) throws ServletException, IOException {
-        // Authorization 헤더에서 Access Token 추출
-        String authorizationHeader = request.getHeader("Authorization");
+        FilterChain filterChain)
+        throws ServletException, IOException {
 
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
+        String authHeader = request.getHeader("Authorization");
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String accessToken = authHeader.replace("Bearer ", "");
+            String username = null;
+
+            try {
+                // Access Token에서 사용자 이름 추출
+                username = jwtUtil.getUsername(accessToken);
+
+                if (!jwtUtil.isExpired(accessToken)) {
+                    setAuthentication(accessToken, request);
+                } else {
+                    throw new RuntimeException("Access Token expired");
+                }
+
+            } catch (Exception e) {
+                // Access Token이 만료된 경우 -> Refresh Token 사용
+                if (username == null && e.getCause() != null) {
+                    username = jwtUtil.extractUsernameFromExpiredToken(accessToken);
+                }
+
+                if (username != null) {
+                    String storedRefreshToken = refreshTokenService.getRefreshToken(username);
+
+                    if (storedRefreshToken != null && !jwtUtil.isExpired(storedRefreshToken)
+                        && Objects.equals("refresh", jwtUtil.getCategory(storedRefreshToken))) {
+
+                        // 새 토큰 생성
+                        String role = jwtUtil.getRole(storedRefreshToken);
+                        String nickname = jwtUtil.getNickname(storedRefreshToken);
+                        String newAccessToken = jwtUtil.createJwt("access", username, role, 600000L); // 10분
+                        String newRefreshToken = jwtUtil.createJwt("refresh", username, role, 86400000L); // 1일
+
+                        // Refresh 토큰 재발급 (Rotate)
+                        refreshTokenService.deleteRefreshToken(username);
+                        refreshTokenService.saveRefreshToken(username, newRefreshToken, 86400L);
+
+                        // 새 Access Token 헤더에 추가
+                        response.setHeader("Authorization", "Bearer " + newAccessToken);
+
+                        // 인증 정보 설정
+                        setAuthentication(newAccessToken, request);
+                    } else {
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED,
+                            "Invalid or expired refresh token");
+                        return;
+                    }
+                }
+            }
         }
-
-        // 헤더에서 access 키에 담긴 토큰을 꺼냄
-        String accessToken = authorizationHeader.replace("Bearer ", "");
-
-        // 토큰 만료 여부 확인
-        try {
-            jwtUtil.isExpired(accessToken);
-        } catch (ExpiredJwtException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Access token expired");
-            return;
-        }
-
-        // Access Token 유효성 확인
-        if (!"access".equals(jwtUtil.getCategory(accessToken))) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Invalid access token");
-            return;
-        }
-
-        String userId = jwtUtil.getUsername(accessToken);
-        Role role = Role.valueOf(jwtUtil.getRole(accessToken));
-
-        Users user = Users.builder()
-            .userId(userId)
-            .password("temppw")
-            .role(role)
-            .build();
-
-        CustomUserDetails customUserDetails = new CustomUserDetails(user);
-
-        Authentication authToken = new UsernamePasswordAuthenticationToken(customUserDetails, null,
-            customUserDetails.getAuthorities());
-        SecurityContextHolder.getContext().setAuthentication(authToken);
 
         filterChain.doFilter(request, response);
+    }
+
+    private void setAuthentication(String token, HttpServletRequest request) {
+        String username = jwtUtil.getUsername(token);
+        String role = jwtUtil.getRole(token);
+        String nickname = jwtUtil.getNickname(token);
+        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(role));
+
+        CustomUserDetails userDetails = new CustomUserDetails(username, nickname, authorities);
+
+        UsernamePasswordAuthenticationToken auth =
+            new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
+        auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 }

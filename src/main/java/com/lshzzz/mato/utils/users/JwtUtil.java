@@ -1,5 +1,6 @@
 package com.lshzzz.mato.utils.users;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -33,6 +34,11 @@ public class JwtUtil {
             .get("role", String.class);
     }
 
+    public String getNickname(String token) {
+        return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload()
+            .get("nickname", String.class);
+    }
+
     public Boolean isExpired(String token) {
         return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload()
             .getExpiration().before(new Date());
@@ -47,5 +53,14 @@ public class JwtUtil {
             .expiration(new Date(System.currentTimeMillis() + expiredMs))
             .signWith(secretKey)
             .compact();
+    }
+
+    public String extractUsernameFromExpiredToken(String token) {
+        try {
+            return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload()
+                .get("username", String.class);
+        } catch (ExpiredJwtException e) {
+            return e.getClaims().get("username", String.class);
+        }
     }
 }

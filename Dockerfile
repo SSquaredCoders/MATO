@@ -24,7 +24,7 @@ COPY --from=builder /app/build/libs/*.jar app.jar
 ENV SPRING_PROFILES_ACTIVE=prod
 
 # 포트 노출
-EXPOSE 8081
+EXPOSE 18080
 
 # 실행 명령
 ENTRYPOINT ["java", "-jar", "app.jar"]

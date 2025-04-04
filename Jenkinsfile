@@ -10,7 +10,7 @@ pipeline {
         DB_HOST = 'mysql'
         DB_PORT = '3306'
         DB_NAME = 'mato'
-        SERVER_PORT = '8081'
+        SERVER_PORT = '18080'
         SPRING_PROFILES_ACTIVE = 'prod'
         SPRING_DATA_REDIS_HOST = 'redis'
         SPRING_DATA_REDIS_PORT = '6379'

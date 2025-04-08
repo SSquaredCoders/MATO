@@ -200,6 +200,19 @@ public class RedisRoomsService {
         redisRoomsRepository.deleteByName(room.name());
     }
 
+    // 방 이름으로 방 삭제
+    @Transactional
+    public void deleteRoomByName(String roomName) {
+        // 방 존재 확인
+        redisRoomsRepository.findByName(roomName)
+            .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
+        
+        // Redis에서 방 삭제
+        log.info("방 이름으로 방 삭제 요청: {}", roomName);
+        redisRoomsRepository.deleteByName(roomName);
+        log.info("방 이름으로 방 삭제 성공: {}", roomName);
+    }
+
     // 비밀번호 검증
     public boolean validatePassword(String roomName, String inputPassword) {
         RoomDto room = redisRoomsRepository.findByName(roomName)
@@ -219,25 +232,127 @@ public class RedisRoomsService {
         RoomDto room = redisRoomsRepository.findByName(roomName)
             .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
         
-        // 참가자 수 제한 확인
+        // 이미 참가자로 등록되어 있는지 확인
         Set<String> participants = redisRoomsRepository.getParticipants(roomName);
+        if (participants.contains(nickname)) {
+            log.info("이미 방에 참가 중인 사용자입니다: {}, 방: {}", nickname, roomName);
+            return; // 이미 참가 중이면 중복 추가하지 않고 조용히 반환
+        }
+        
+        // 참가자 수 제한 확인
         if (participants.size() >= room.maxParticipants()) {
             throw new CustomException(ErrorCode.ROOM_FULL);
         }
         
         // 참가자 추가
         redisRoomsRepository.addParticipant(roomName, nickname);
+        log.info("참가자 추가 성공: {}, 방: {}", nickname, roomName);
+    }
+
+    // 특정 패턴의 닉네임을 가진 참가자들을 일괄 제거 (예: 게스트 사용자)
+    @Transactional
+    public void cleanupParticipantsByPattern(String roomName, String nicknamePattern) {
+        try {
+            // 방 존재 확인
+            RoomDto room = redisRoomsRepository.findByName(roomName)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
+            
+            // 현재 참가자 목록 가져오기
+            Set<String> participants = redisRoomsRepository.getParticipants(roomName);
+            log.info("방 {} 청소 전 참가자 수: {}", roomName, participants.size());
+            
+            // 패턴에 맞는 참가자들 필터링
+            List<String> participantsToRemove = participants.stream()
+                .filter(nickname -> nickname.startsWith(nicknamePattern))
+                .collect(Collectors.toList());
+            
+            log.info("방 {}에서 제거할 '{}' 패턴 참가자 수: {}", roomName, nicknamePattern, participantsToRemove.size());
+            
+            // 필터링된 참가자들 제거
+            int removedCount = 0;
+            for (String nickname : participantsToRemove) {
+                redisRoomsRepository.removeParticipant(roomName, nickname);
+                log.info("패턴 일치 참가자 제거: {} (방: {})", nickname, roomName);
+                removedCount++;
+            }
+            
+            log.info("방 {}에서 총 {}명의 {}* 패턴 참가자 제거 완료", roomName, removedCount, nicknamePattern);
+            
+            // 남은 참가자 확인
+            Set<String> remainingParticipants = redisRoomsRepository.getParticipants(roomName);
+            log.info("방 {} 청소 후 남은 참가자 수: {}", roomName, remainingParticipants.size());
+            
+            // 참가자가 모두 나갔으면 방 삭제
+            if (remainingParticipants.isEmpty()) {
+                log.info("방 {}의 참가자가 모두 제거되어 방을 자동 삭제합니다", roomName);
+                redisRoomsRepository.deleteByName(roomName);
+            }
+            
+        } catch (Exception e) {
+            log.error("참가자 패턴 일괄 제거 중 오류 발생: {}", e.getMessage(), e);
+        }
     }
 
     // 참가자 제거
     @Transactional
     public void removeParticipant(String roomName, String nickname) {
-        // 방 존재 확인
-        redisRoomsRepository.findByName(roomName)
-            .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
-        
-        // 참가자 제거
-        redisRoomsRepository.removeParticipant(roomName, nickname);
+        try {
+            // 방 존재 확인
+            RoomDto room = redisRoomsRepository.findByName(roomName)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
+            
+            // 이미 참가자 목록에 존재하는지 확인
+            Set<String> participants = redisRoomsRepository.getParticipants(roomName);
+            if (!participants.contains(nickname)) {
+                log.info("참가자 제거 건너뜀: {} 사용자는 {} 방의 참가자가 아닙니다", nickname, roomName);
+                return;
+            }
+            
+            // 참가자 제거
+            log.info("참가자 제거 시작: {} (방: {})", nickname, roomName);
+            redisRoomsRepository.removeParticipant(roomName, nickname);
+            log.info("참가자 제거 완료: {} (방: {})", nickname, roomName);
+            
+            // 참가자 제거 후 남은 참가자 수 확인 (Redis에서 직접 조회하여 정확히 확인)
+            Set<String> remainingParticipants = redisRoomsRepository.getParticipants(roomName);
+            int participantCount = remainingParticipants.size();
+            log.info("방 {} 남은 참가자 수: {}", roomName, participantCount);
+            
+            // 참가자가 모두 나가면 방 삭제
+            if (participantCount == 0) {
+                log.info("방 {} 참가자가 모두 나갔으므로 방을 자동 삭제합니다.", roomName);
+                try {
+                    redisRoomsRepository.deleteByName(roomName);
+                    log.info("방 {} 삭제 완료", roomName);
+                } catch (Exception e) {
+                    log.error("방 삭제 중 오류: {}", e.getMessage());
+                }
+                
+                // 마지막 참가자 퇴장으로 방이 삭제되었다는 로그 추가
+                log.info("마지막 참가자 {} 퇴장으로 방 {} 자동 삭제됨", nickname, roomName);
+            } else if (room.host().equals(nickname)) {
+                // 방장이 나간 경우 새 방장 설정
+                String newHost = remainingParticipants.iterator().next(); // 첫 번째 참가자를 새 방장으로
+                log.info("방장 {} 퇴장으로 새 방장 설정: {} (방: {})", nickname, newHost, roomName);
+                
+                // 방장 정보 업데이트
+                RoomDto updatedRoom = new RoomDto(
+                    room.id(),
+                    room.name(),
+                    room.password(),
+                    room.maxParticipants(),
+                    newHost,
+                    room.gameStatus(),
+                    room.mapId()
+                );
+                redisRoomsRepository.save(updatedRoom);
+                log.info("새 방장 정보 저장 완료: {} (방: {})", newHost, roomName);
+            }
+        } catch (Exception e) {
+            // 방이 이미 삭제되었거나 기타 오류가 발생한 경우
+            log.error("참가자 제거 중 오류 발생: {}", e.getMessage());
+            // 오류가 발생해도 작업은 계속 진행 - 사용자는 방을 나갈 수 있어야 함
+        }
     }
 
     // 참가자 준비 상태 변경
@@ -321,5 +436,15 @@ public class RedisRoomsService {
             .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
         
         return mapToRoomListDto(roomDto);
+    }
+
+    // 참가자 목록 가져오기
+    public Set<String> getParticipants(String roomName) {
+        // 방 존재 확인
+        redisRoomsRepository.findByName(roomName)
+            .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
+        
+        // 저장소에서 참가자 목록 조회하여 반환
+        return redisRoomsRepository.getParticipants(roomName);
     }
 } 

@@ -88,4 +88,20 @@ public class RoomsService {
     public void setParticipantReady(String roomName, String nickname, boolean ready) {
         redisRoomsService.setParticipantReady(roomName, nickname, ready);
     }
+
+    // 방 참가자 목록 조회
+    public Set<String> getParticipants(String roomName) {
+        return redisRoomsService.getParticipants(roomName);
+    }
+
+    @Transactional
+    public void cleanupParticipantsByPattern(String roomName, String nicknamePattern) {
+        redisRoomsService.cleanupParticipantsByPattern(roomName, nicknamePattern);
+    }
+
+    // 방 이름으로 방 삭제
+    @Transactional
+    public void deleteRoomByName(String roomName) {
+        redisRoomsService.deleteRoomByName(roomName);
+    }
 }

@@ -141,8 +141,24 @@ public class RedisRoomsRepository {
         String participantsKey = ROOMS_PREFIX + roomName + ":participants";
         String readyKey = ROOMS_PREFIX + roomName + ":ready";
         
-        redisTemplate.opsForSet().remove(participantsKey, nickname);
-        redisTemplate.opsForHash().delete(readyKey, nickname);
+        // 제거 전에 해당 사용자가 참가자인지 확인
+        boolean isMember = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(participantsKey, nickname));
+        
+        if (isMember) {
+            // 참가자 집합에서 제거
+            Long removeResult = redisTemplate.opsForSet().remove(participantsKey, nickname);
+            // 준비 상태에서 제거
+            Long deleteResult = redisTemplate.opsForHash().delete(readyKey, nickname);
+            
+            log.info("참가자 {} 제거 결과: 참가자 집합={}, 준비 상태={}", 
+                    nickname, removeResult, deleteResult);
+        } else {
+            log.info("참가자 {} 제거 실패: 이미 참가자 목록에 없음 (방: {})", nickname, roomName);
+        }
+        
+        // 제거 후 남은 참가자 수 확인
+        Long size = redisTemplate.opsForSet().size(participantsKey);
+        log.info("방 {} 참가자 제거 후 남은 참가자 수: {}", roomName, size);
     }
 
     /**

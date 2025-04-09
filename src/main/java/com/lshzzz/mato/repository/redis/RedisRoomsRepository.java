@@ -128,8 +128,32 @@ public class RedisRoomsRepository {
         String participantsKey = ROOMS_PREFIX + roomName + ":participants";
         String readyKey = ROOMS_PREFIX + roomName + ":ready";
         
-        redisTemplate.opsForSet().add(participantsKey, nickname);
+        // 이미 참가자인지 확인 
+        boolean isMember = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(participantsKey, nickname));
+        if (isMember) {
+            log.info("참가자 추가 무시(중복): {} 사용자는 이미 {} 방에 참가 중입니다", nickname, roomName);
+            return;
+        }
+        
+        // 참가자 추가 전 현재 참가자 수 확인
+        Long beforeSize = redisTemplate.opsForSet().size(participantsKey);
+        
+        // 참가자 추가
+        Long addResult = redisTemplate.opsForSet().add(participantsKey, nickname);
         redisTemplate.opsForHash().put(readyKey, nickname, false);
+        
+        // 추가 결과 확인
+        log.info("참가자 {} 추가 결과: {} (방: {}, 요청자: {})", nickname, addResult, roomName, nickname);
+        
+        // 현재 참가자 수 확인
+        Long afterSize = redisTemplate.opsForSet().size(participantsKey);
+        log.info("방 {} 참가자 추가 전후 참가자 수: {}명 → {}명", roomName, beforeSize, afterSize);
+        
+        // 디버깅용: 현재 참가자 목록 로그
+        Set<Object> members = redisTemplate.opsForSet().members(participantsKey);
+        if (members != null) {
+            log.info("방 {} 현재 참가자 목록: {}", roomName, members);
+        }
     }
 
     /**
@@ -152,6 +176,14 @@ public class RedisRoomsRepository {
             
             log.info("참가자 {} 제거 결과: 참가자 집합={}, 준비 상태={}", 
                     nickname, removeResult, deleteResult);
+            
+            // 제거 확인
+            boolean stillMember = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(participantsKey, nickname));
+            if (stillMember) {
+                log.warn("참가자 {} 제거 후에도 여전히 목록에 존재함 (방: {})", nickname, roomName);
+                // 한번 더 제거 시도
+                redisTemplate.opsForSet().remove(participantsKey, nickname);
+            }
         } else {
             log.info("참가자 {} 제거 실패: 이미 참가자 목록에 없음 (방: {})", nickname, roomName);
         }
@@ -159,6 +191,14 @@ public class RedisRoomsRepository {
         // 제거 후 남은 참가자 수 확인
         Long size = redisTemplate.opsForSet().size(participantsKey);
         log.info("방 {} 참가자 제거 후 남은 참가자 수: {}", roomName, size);
+        
+        // 참가자 목록 조회하여 로그에 남김 (디버깅 용도)
+        if (size > 0) {
+            Set<Object> remainingMembers = redisTemplate.opsForSet().members(participantsKey);
+            if (remainingMembers != null) {
+                log.info("방 {} 남은 참가자 목록: {}", roomName, remainingMembers);
+            }
+        }
     }
 
     /**

@@ -22,5 +22,7 @@ public record RoomsCreateRequest(
     @NotNull
     @Min(value = 2, message = "최소 인원은 2명 이상이어야 합니다.")
     @Max(value = 10, message = "최대 인원은 10명까지 가능합니다.")
-    Integer maxParticipants
+    Integer maxParticipants,
+    
+    String hostNickname
 ) {}

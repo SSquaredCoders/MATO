@@ -11,7 +11,9 @@ public record RoomsUpdateRequest(
     String password,
 
     @NotNull(message = "맵 선택은 필수입니다.")
-    Long mapId
+    Long mapId,
+    
+    String hostNickname
 
     // @NotBlank String id ← 필요한 경우 추가
 

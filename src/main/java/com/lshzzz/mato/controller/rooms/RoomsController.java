@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.HashMap;
@@ -52,8 +53,20 @@ public class RoomsController {
 
     // 참가자 추가
     @PostMapping("/{name}/participants")
-    public ResponseEntity<Void> addParticipant(@PathVariable String name, HttpServletRequest request) {
-        String nickname = roomsService.resolveNickname(request);
+    public ResponseEntity<Void> addParticipant(
+            @PathVariable String name, 
+            @RequestBody(required = false) Map<String, String> requestBody, 
+            HttpServletRequest request) {
+        
+        // 요청 본문에서 닉네임 추출 (요청 본문이 없으면 기존 방식 사용)
+        String nickname;
+        if (requestBody != null && requestBody.containsKey("nickname")) {
+            nickname = requestBody.get("nickname");
+            log.info("클라이언트에서 전달된 닉네임 사용: {}", nickname);
+        } else {
+            nickname = roomsService.resolveNickname(request);
+            log.info("세션에서 닉네임 추출: {}", nickname);
+        }
         
         // 이미 참가자인지 확인
         Set<String> participants = roomsService.getParticipants(name);
@@ -73,8 +86,21 @@ public class RoomsController {
 
     // 참가자 제거
     @DeleteMapping("/{name}/participants")
-    public ResponseEntity<Void> removeParticipant(@PathVariable String name, HttpServletRequest request) {
-        String nickname = roomsService.resolveNickname(request);
+    public ResponseEntity<Void> removeParticipant(
+            @PathVariable String name,
+            @RequestBody(required = false) Map<String, String> requestBody,
+            HttpServletRequest request) {
+        
+        // 요청 본문에서 닉네임 추출 (요청 본문이 없으면 기존 방식 사용)
+        String nickname;
+        if (requestBody != null && requestBody.containsKey("nickname")) {
+            nickname = requestBody.get("nickname");
+            log.info("클라이언트에서 전달된 닉네임 사용: {}", nickname);
+        } else {
+            nickname = roomsService.resolveNickname(request);
+            log.info("세션에서 닉네임 추출: {}", nickname);
+        }
+        
         roomsService.removeParticipant(name, nickname);
         
         // 로비에 참가자 변경 알림
@@ -92,39 +118,40 @@ public class RoomsController {
         return ResponseEntity.ok().build();
     }
 
-
-    // 방 생성
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
-    public ResponseEntity<RoomsResponse> createRoom(@RequestBody @Valid RoomsCreateRequest request,
-        HttpServletRequest httpRequest) {
-        String hostNickname = roomsService.resolveNickname(httpRequest);
-        RoomsResponse response = roomsService.createRoom(request, hostNickname);
-        
-        // 로비에 방 생성 알림
-        sendLobbyUpdateMessage(request.name(), "ROOM_CREATE");
-        
-        return ResponseEntity.ok(response);
+    public RoomsResponse createRoom(
+            @Valid @RequestBody RoomsCreateRequest request) {
+        log.info("createRoom called with request: {}", request);
+        String hostNickname = request.hostNickname();
+        log.info("Using hostNickname from request body: {}", hostNickname);
+        return roomsService.createRoom(request, hostNickname);
     }
 
-    // 방 수정
+    @ResponseStatus(HttpStatus.OK)
     @PutMapping("/{id}")
-    public ResponseEntity<RoomsResponse> updateRoom(@PathVariable Long id,
-        @RequestBody @Valid RoomsUpdateRequest request,
-        HttpServletRequest httpRequest) {
-        String nickname = roomsService.resolveNickname(httpRequest);
-        RoomsResponse response = roomsService.updateRoom(id, request, nickname);
-        
-        // 로비에 방 정보 업데이트 알림
-        sendLobbyUpdateMessage(response.name(), "ROOM_UPDATE");
-        
-        return ResponseEntity.ok(response);
+    public RoomsResponse updateRoom(
+            @PathVariable Long id,
+            @Valid @RequestBody RoomsUpdateRequest request) {
+        log.info("updateRoom called with request: {}", request);
+        String hostNickname = request.hostNickname();
+        return roomsService.updateRoom(id, request, hostNickname);
     }
 
     // 방 삭제
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteRoom(@PathVariable Long id,
+        @RequestBody(required = false) Map<String, String> requestBody,
         HttpServletRequest httpRequest) {
-        String nickname = roomsService.resolveNickname(httpRequest);
+        // 요청 본문에서 닉네임 추출 (요청 본문이 없으면 기존 방식 사용)
+        String nickname;
+        if (requestBody != null && requestBody.containsKey("nickname")) {
+            nickname = requestBody.get("nickname");
+            log.info("클라이언트에서 전달된 닉네임 사용: {}", nickname);
+        } else {
+            nickname = roomsService.resolveNickname(httpRequest);
+            log.info("세션에서 닉네임 추출: {}", nickname);
+        }
         
         // 방 이름 객체를 미리 알 수 없으므로, 삭제 후 로그만 남김
         roomsService.deleteRoom(id, nickname);

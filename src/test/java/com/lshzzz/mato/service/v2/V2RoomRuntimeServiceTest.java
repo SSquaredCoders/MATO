@@ -2,8 +2,11 @@ package com.lshzzz.mato.service.v2;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.lshzzz.mato.model.v2.V2CreateMapRequest;
 import com.lshzzz.mato.model.v2.V2CreateRoomRequest;
 import com.lshzzz.mato.model.v2.V2GamePhase;
+import com.lshzzz.mato.model.v2.V2MapSongDefinition;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class V2RoomRuntimeServiceTest {
@@ -107,8 +110,40 @@ class V2RoomRuntimeServiceTest {
 
     @Test
     void createsRoomFromSelectedMap() {
+        var createdMap = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Boss Battle",
+                "host owned map",
+                "host-01",
+                "hard",
+                "public",
+                25,
+                6,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: CODE GEASS OP",
+                        "COLORS",
+                        "FLOW",
+                        List.of("colors")
+                    ),
+                    new V2MapSongDefinition(
+                        "Hint: Naruto opening",
+                        "Haruka Kanata",
+                        "ASIAN KUNG-FU GENERATION",
+                        List.of("haruka kanata")
+                    ),
+                    new V2MapSongDefinition(
+                        "Hint: SAO OP",
+                        "crossing field",
+                        "LiSA",
+                        List.of("crossing field")
+                    )
+                )
+            )
+        );
+
         var snapshot = roomRuntimeService.createRoom(
-            new V2CreateRoomRequest("boss queue", "host-01", 101L)
+            new V2CreateRoomRequest("boss queue", "host-01", createdMap.id())
         );
 
         assertThat(snapshot.map()).isNotNull();

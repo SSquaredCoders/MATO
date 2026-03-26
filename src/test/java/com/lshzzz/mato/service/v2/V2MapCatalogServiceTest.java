@@ -12,13 +12,10 @@ class V2MapCatalogServiceTest {
     private final V2MapCatalogService mapCatalogService = new V2MapCatalogService();
 
     @Test
-    void exposesSeededMaps() {
-        var maps = mapCatalogService.getMaps();
+    void hidesMapsThatBelongToOtherCreators() {
+        var maps = mapCatalogService.getMaps("host-01");
 
-        assertThat(maps).isNotEmpty();
-        assertThat(maps)
-            .extracting("name")
-            .contains("Anime Rush", "Boss Battle");
+        assertThat(maps).isEmpty();
     }
 
     @Test
@@ -46,9 +43,66 @@ class V2MapCatalogServiceTest {
         assertThat(created.name()).isEqualTo("Night Drive");
         assertThat(created.hintRevealDelaySeconds()).isEqualTo(7);
         assertThat(created.songs()).hasSize(1);
-        assertThat(mapCatalogService.getMap(created.id()).songs())
+        assertThat(mapCatalogService.getMap(created.id(), "host-01").songs())
             .singleElement()
             .extracting("title")
             .isEqualTo("Blue Bird");
+    }
+
+    @Test
+    void hidesMapsCreatedByOtherUsers() {
+        mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Private Queue",
+                "다른 유저 맵",
+                "guest-77",
+                "normal",
+                "private",
+                25,
+                5,
+                List.of(
+                    new V2MapSongDefinition(
+                        "힌트: 테스트 곡",
+                        "Blue Bird",
+                        "Ikimono-gakari",
+                        List.of("blue bird"),
+                        "youtube",
+                        "https://youtu.be/example-blue-bird",
+                        "Blue Bird demo"
+                    )
+                )
+            )
+        );
+
+        assertThat(mapCatalogService.getMaps("host-01"))
+            .extracting("name")
+            .doesNotContain("Private Queue");
+    }
+
+    @Test
+    void exposesOnlyMapsCreatedByViewer() {
+        mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "My Queue",
+                "viewer owned map",
+                "host-01",
+                "normal",
+                "public",
+                25,
+                5,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: my song",
+                        "Blue Bird",
+                        "Ikimono-gakari",
+                        List.of("blue bird")
+                    )
+                )
+            )
+        );
+
+        assertThat(mapCatalogService.getMaps("host-01"))
+            .extracting("name")
+            .containsExactly("My Queue");
     }
 }

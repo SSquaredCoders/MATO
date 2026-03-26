@@ -8,6 +8,18 @@ public record V2MapSongDefinition(
     @NotBlank String clue,
     @NotBlank String title,
     @NotBlank String artist,
-    @NotEmpty List<@NotBlank String> answers
+    @NotEmpty List<@NotBlank String> answers,
+    String audioSourceType,
+    String audioSourceValue,
+    String audioSourceLabel
 ) {
+
+    public V2MapSongDefinition(
+        String clue,
+        String title,
+        String artist,
+        List<String> answers
+    ) {
+        this(clue, title, artist, answers, null, null, null);
+    }
 }

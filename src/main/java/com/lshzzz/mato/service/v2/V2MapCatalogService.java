@@ -90,16 +90,20 @@ public class V2MapCatalogService {
         );
     }
 
-    public List<V2MapSummary> getMaps() {
+    public List<V2MapSummary> getMaps(String viewer) {
         return maps.values().stream()
+            .filter(map -> isVisibleToViewer(map, viewer))
             .sorted(Comparator.comparing(V2MapDetail::id))
             .map(this::toSummary)
             .toList();
     }
 
-    public V2MapDetail getMap(long mapId) {
+    public V2MapDetail getMap(long mapId, String viewer) {
         V2MapDetail map = maps.get(mapId);
         if (map == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "맵을 찾을 수 없습니다.");
+        }
+        if (!isVisibleToViewer(map, viewer)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "맵을 찾을 수 없습니다.");
         }
         return map;
@@ -122,8 +126,8 @@ public class V2MapCatalogService {
         return map;
     }
 
-    public V2MapSummary getSummary(long mapId) {
-        return toSummary(getMap(mapId));
+    public V2MapSummary getSummary(long mapId, String viewer) {
+        return toSummary(getMap(mapId, viewer));
     }
 
     private void seed(
@@ -187,6 +191,14 @@ public class V2MapCatalogService {
         };
     }
 
+    private boolean isVisibleToViewer(V2MapDetail map, String viewer) {
+        String normalizedViewer = Objects.requireNonNullElse(viewer, "").trim();
+        if (normalizedViewer.isBlank()) {
+            return false;
+        }
+        return normalizedViewer.equals(map.createdBy());
+    }
+
     private int sanitizeNonNegative(Integer value, String fieldName) {
         if (value == null || value < 0) {
             throw new ResponseStatusException(
@@ -206,7 +218,10 @@ public class V2MapCatalogService {
                 sanitize(song.artist()),
                 song.answers().stream()
                     .map(this::sanitize)
-                    .toList()
+                    .toList(),
+                normalizeAudioSourceType(song.audioSourceType()),
+                sanitizeOptional(song.audioSourceValue()),
+                sanitizeOptional(song.audioSourceLabel())
             ))
             .toList();
 
@@ -215,5 +230,22 @@ public class V2MapCatalogService {
         }
 
         return sanitized;
+    }
+
+    private String normalizeAudioSourceType(String value) {
+        String candidate = sanitizeOptional(value);
+        if (candidate == null) {
+            return null;
+        }
+        String normalized = candidate.toLowerCase();
+        return switch (normalized) {
+            case "youtube", "file" -> normalized;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "오디오 소스 종류가 올바르지 않습니다.");
+        };
+    }
+
+    private String sanitizeOptional(String value) {
+        String candidate = Objects.requireNonNullElse(value, "").trim();
+        return candidate.isBlank() ? null : candidate;
     }
 }

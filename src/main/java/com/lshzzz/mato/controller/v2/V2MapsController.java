@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,13 +25,13 @@ public class V2MapsController {
     private final V2MapCatalogService mapCatalogService;
 
     @GetMapping
-    public List<V2MapSummary> getMaps() {
-        return mapCatalogService.getMaps();
+    public List<V2MapSummary> getMaps(@RequestParam(required = false) String viewer) {
+        return mapCatalogService.getMaps(viewer);
     }
 
     @GetMapping("/{mapId}")
-    public V2MapDetail getMap(@PathVariable long mapId) {
-        return mapCatalogService.getMap(mapId);
+    public V2MapDetail getMap(@PathVariable long mapId, @RequestParam(required = false) String viewer) {
+        return mapCatalogService.getMap(mapId, viewer);
     }
 
     @PostMapping

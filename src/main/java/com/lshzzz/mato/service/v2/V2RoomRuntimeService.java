@@ -76,7 +76,7 @@ public class V2RoomRuntimeService {
 
             RuntimeRoom room = buildRoom(roomName, hostNickname, false);
             if (request.mapId() != null) {
-                applyMapToRoom(room, mapCatalogService.getMap(request.mapId()));
+                applyMapToRoom(room, mapCatalogService.getMap(request.mapId(), hostNickname));
             }
             room.lastEvent = hostNickname + "님이 방을 만들었습니다.";
             appendSystemMessage(room, room.lastEvent);

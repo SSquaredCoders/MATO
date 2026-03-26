@@ -8,12 +8,13 @@ import org.junit.jupiter.api.Test;
 
 class V2RoomRuntimeServiceTest {
 
-    private final V2RoomRuntimeService roomRuntimeService = new V2RoomRuntimeService();
+    private final V2MapCatalogService mapCatalogService = new V2MapCatalogService();
+    private final V2RoomRuntimeService roomRuntimeService = new V2RoomRuntimeService(mapCatalogService);
 
     @Test
     void createsRoomWithNormalizedName() {
         var snapshot = roomRuntimeService.createRoom(
-            new V2CreateRoomRequest(" Ranked Demo ", "guest-host")
+            new V2CreateRoomRequest(" Ranked Demo ", "guest-host", null)
         );
 
         assertThat(snapshot.roomName()).isEqualTo("ranked-demo");
@@ -78,7 +79,7 @@ class V2RoomRuntimeServiceTest {
 
     @Test
     void removesCreatedRoomWhenLastParticipantLeaves() {
-        roomRuntimeService.createRoom(new V2CreateRoomRequest("temp room", "maker"));
+        roomRuntimeService.createRoom(new V2CreateRoomRequest("temp room", "maker", null));
         roomRuntimeService.joinRoom("session-maker", "temp-room", "maker");
 
         roomRuntimeService.handleDisconnect("session-maker");
@@ -99,5 +100,16 @@ class V2RoomRuntimeServiceTest {
         assertThat(chatEvent.chatMessage()).isNotNull();
         assertThat(chatEvent.chatMessage().content()).isEqualTo("테스트 채팅");
         assertThat(chatEvent.chatMessage().visibility()).isEqualTo("public");
+    }
+
+    @Test
+    void createsRoomFromSelectedMap() {
+        var snapshot = roomRuntimeService.createRoom(
+            new V2CreateRoomRequest("boss queue", "host-01", 101L)
+        );
+
+        assertThat(snapshot.map()).isNotNull();
+        assertThat(snapshot.map().name()).isEqualTo("Boss Battle");
+        assertThat(snapshot.totalRounds()).isEqualTo(3);
     }
 }

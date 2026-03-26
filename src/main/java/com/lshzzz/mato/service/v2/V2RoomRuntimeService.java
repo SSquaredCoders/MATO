@@ -3,6 +3,8 @@ package com.lshzzz.mato.service.v2;
 import com.lshzzz.mato.model.v2.V2ClientEnvelope;
 import com.lshzzz.mato.model.v2.V2CreateRoomRequest;
 import com.lshzzz.mato.model.v2.V2GamePhase;
+import com.lshzzz.mato.model.v2.V2MapDetail;
+import com.lshzzz.mato.model.v2.V2MapSongDefinition;
 import com.lshzzz.mato.model.v2.V2MapSummary;
 import com.lshzzz.mato.model.v2.V2RoomChatMessage;
 import com.lshzzz.mato.model.v2.V2RoomParticipant;
@@ -32,11 +34,13 @@ public class V2RoomRuntimeService {
         "public"
     );
 
+    private final V2MapCatalogService mapCatalogService;
     private final Map<String, RuntimeRoom> rooms = new ConcurrentHashMap<>();
     private final Map<String, SessionMembership> sessionMemberships = new ConcurrentHashMap<>();
     private final Object monitor = new Object();
 
-    public V2RoomRuntimeService() {
+    public V2RoomRuntimeService(V2MapCatalogService mapCatalogService) {
+        this.mapCatalogService = mapCatalogService;
         RuntimeRoom demoRoom = buildRoom(DEMO_ROOM_NAME, DEMO_HOST_NICKNAME, false);
         demoRoom.lastEvent = "데모 방입니다. 접속한 사람만 참가자로 표시됩니다.";
         appendSystemMessage(demoRoom, demoRoom.lastEvent);
@@ -68,6 +72,9 @@ public class V2RoomRuntimeService {
             }
 
             RuntimeRoom room = buildRoom(roomName, hostNickname, false);
+            if (request.mapId() != null) {
+                applyMapToRoom(room, mapCatalogService.getMap(request.mapId()));
+            }
             room.lastEvent = hostNickname + "님이 방을 만들었습니다.";
             appendSystemMessage(room, room.lastEvent);
             rooms.put(roomName, room);
@@ -484,6 +491,34 @@ public class V2RoomRuntimeService {
             )
         ));
         return room;
+    }
+
+    private void applyMapToRoom(RuntimeRoom room, V2MapDetail mapDetail) {
+        room.map = new V2MapSummary(
+            mapDetail.id(),
+            mapDetail.name(),
+            mapDetail.songs().size(),
+            mapDetail.difficulty(),
+            mapDetail.visibility()
+        );
+        room.round = 0;
+        room.currentPrompt = LOBBY_PROMPT;
+        room.currentReveal = null;
+        room.songs.clear();
+        room.songs.addAll(
+            mapDetail.songs().stream()
+                .map(this::toRuntimeSong)
+                .toList()
+        );
+    }
+
+    private RuntimeSong toRuntimeSong(V2MapSongDefinition song) {
+        return new RuntimeSong(
+            song.title(),
+            song.artist(),
+            song.clue(),
+            song.answers()
+        );
     }
 
     private RuntimeRoom getRequiredRoom(String roomName) {

@@ -70,12 +70,22 @@ class V2RoomRuntimeServiceTest {
 
         roomRuntimeService.handleDisconnect("session-host");
 
-        var disconnectedSnapshot = roomRuntimeService.getRoomSnapshot("demo-room");
-        assertThat(disconnectedSnapshot.participants()).isEmpty();
+        assertThat(roomRuntimeService.getLobbyRooms()).isEmpty();
+
+        var recreatedSnapshot = roomRuntimeService.getRoomSnapshot("demo-room");
+        assertThat(recreatedSnapshot.participants()).isEmpty();
+    }
+
+    @Test
+    void removesCreatedRoomWhenLastParticipantLeaves() {
+        roomRuntimeService.createRoom(new V2CreateRoomRequest("temp room", "maker"));
+        roomRuntimeService.joinRoom("session-maker", "temp-room", "maker");
+
+        roomRuntimeService.handleDisconnect("session-maker");
+
         assertThat(roomRuntimeService.getLobbyRooms())
-            .singleElement()
-            .extracting("participantCount")
-            .isEqualTo(0);
+            .extracting("name")
+            .doesNotContain("temp-room");
     }
 
     @Test

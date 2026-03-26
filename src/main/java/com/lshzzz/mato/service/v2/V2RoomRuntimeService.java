@@ -37,7 +37,7 @@ public class V2RoomRuntimeService {
     private final Object monitor = new Object();
 
     public V2RoomRuntimeService() {
-        RuntimeRoom demoRoom = buildRoom(DEMO_ROOM_NAME, DEMO_HOST_NICKNAME, true);
+        RuntimeRoom demoRoom = buildRoom(DEMO_ROOM_NAME, DEMO_HOST_NICKNAME, false);
         demoRoom.lastEvent = "데모 방입니다. 접속한 사람만 참가자로 표시됩니다.";
         appendSystemMessage(demoRoom, demoRoom.lastEvent);
         rooms.put(demoRoom.roomName, demoRoom);
@@ -488,6 +488,13 @@ public class V2RoomRuntimeService {
 
     private RuntimeRoom getRequiredRoom(String roomName) {
         RuntimeRoom room = rooms.get(roomName);
+        if (room == null && DEMO_ROOM_NAME.equals(roomName)) {
+            RuntimeRoom demoRoom = buildRoom(DEMO_ROOM_NAME, DEMO_HOST_NICKNAME, false);
+            demoRoom.lastEvent = "데모 방입니다. 접속한 사람만 참가자로 표시됩니다.";
+            appendSystemMessage(demoRoom, demoRoom.lastEvent);
+            rooms.put(demoRoom.roomName, demoRoom);
+            room = demoRoom;
+        }
         if (room == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "방을 찾을 수 없습니다.");
         }
@@ -607,16 +614,8 @@ public class V2RoomRuntimeService {
 
     private EventResult clearOrRemoveIfEmpty(RuntimeRoom room, String message) {
         unregisterAllMemberships(room.roomName);
-
-        if (!room.persistent) {
-            rooms.remove(room.roomName);
-            return new EventResult("room.participant.changed", room.roomName, null, message, null, true, null);
-        }
-
-        resetPersistentRoom(room);
-        room.lastEvent = message;
-        appendSystemMessage(room, message);
-        return successEvent("room.participant.changed", room, message, null, true);
+        rooms.remove(room.roomName);
+        return new EventResult("room.participant.changed", room.roomName, null, message, null, true, null);
     }
 
     private void unregisterAllMemberships(String roomName) {

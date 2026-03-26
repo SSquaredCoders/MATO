@@ -36,14 +36,14 @@ class V2RoomRuntimeServiceTest {
         var answered = roomRuntimeService.submitAnswer(
             "demo-room",
             "guest-01",
-            "A Cruel Angel's Thesis"
+            "zankoku na tenshi no thesis"
         );
 
         assertThat(answered.type()).isEqualTo("game.answer.accepted");
         assertThat(answered.snapshot()).isNotNull();
         assertThat(answered.snapshot().round()).isEqualTo(2);
         assertThat(answered.chatMessage()).isNotNull();
-        assertThat(answered.chatMessage().content()).isEqualTo("A Cruel Angel's Thesis");
+        assertThat(answered.chatMessage().content()).isEqualTo("A Cruel Angel's Thesis - Yoko Takahashi");
         assertThat(answered.chatMessage().tone()).isEqualTo("correct");
         assertThat(answered.snapshot().participants())
             .filteredOn(participant -> participant.nickname().equals("guest-01"))

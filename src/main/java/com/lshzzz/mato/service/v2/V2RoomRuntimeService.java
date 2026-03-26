@@ -313,7 +313,7 @@ public class V2RoomRuntimeService {
             V2RoomChatMessage chatMessage = buildChatMessage(
                 room.roomName,
                 participant.nickname,
-                safeAnswer,
+                correct ? currentSong.title + " - " + currentSong.artist : safeAnswer,
                 correct ? "correct" : "chat",
                 "public"
             );

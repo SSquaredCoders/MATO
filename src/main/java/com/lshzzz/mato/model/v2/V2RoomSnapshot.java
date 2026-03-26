@@ -11,6 +11,8 @@ public record V2RoomSnapshot(
     int round,
     int totalRounds,
     String currentPrompt,
+    String currentHint,
+    String hintRevealAt,
     String lastEvent,
     String currentReveal,
     List<V2RoomParticipant> participants

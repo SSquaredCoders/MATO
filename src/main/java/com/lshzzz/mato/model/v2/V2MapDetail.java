@@ -10,6 +10,7 @@ public record V2MapDetail(
     String difficulty,
     String visibility,
     int roundTimeLimitSeconds,
+    int hintRevealDelaySeconds,
     List<V2MapSongDefinition> songs
 ) {
 }

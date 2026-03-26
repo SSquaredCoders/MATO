@@ -17,6 +17,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class V2MapCatalogService {
 
+    private static final int DEFAULT_HINT_REVEAL_DELAY_SECONDS = 8;
+
     private final AtomicLong sequence = new AtomicLong(100L);
     private final Map<Long, V2MapDetail> maps = new ConcurrentHashMap<>();
 
@@ -28,6 +30,7 @@ public class V2MapCatalogService {
             "normal",
             "public",
             30,
+            DEFAULT_HINT_REVEAL_DELAY_SECONDS,
             List.of(
                 new V2MapSongDefinition(
                     "문제: 일본 애니메이션 에반게리온 오프닝입니다. 곡 제목을 입력하세요.",
@@ -63,6 +66,7 @@ public class V2MapCatalogService {
             "hard",
             "public",
             25,
+            DEFAULT_HINT_REVEAL_DELAY_SECONDS,
             List.of(
                 new V2MapSongDefinition(
                     "문제: 코드 기어스 1기 오프닝입니다.",
@@ -110,7 +114,8 @@ public class V2MapCatalogService {
             sanitize(request.createdBy()),
             normalizeDifficulty(request.difficulty()),
             normalizeVisibility(request.visibility()),
-            request.roundTimeLimitSeconds(),
+            sanitizeNonNegative(request.roundTimeLimitSeconds(), "라운드 제한시간"),
+            sanitizeNonNegative(request.hintRevealDelaySeconds(), "힌트 공개 지연시간"),
             sanitizeSongs(request.songs())
         );
         maps.put(map.id(), map);
@@ -128,6 +133,7 @@ public class V2MapCatalogService {
         String difficulty,
         String visibility,
         int roundTimeLimitSeconds,
+        int hintRevealDelaySeconds,
         List<V2MapSongDefinition> songs
     ) {
         long mapId = sequence.getAndIncrement();
@@ -141,6 +147,7 @@ public class V2MapCatalogService {
                 difficulty,
                 visibility,
                 roundTimeLimitSeconds,
+                hintRevealDelaySeconds,
                 songs
             )
         );
@@ -178,6 +185,16 @@ public class V2MapCatalogService {
             case "public", "private" -> candidate;
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "공개 범위 값이 올바르지 않습니다.");
         };
+    }
+
+    private int sanitizeNonNegative(Integer value, String fieldName) {
+        if (value == null || value < 0) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                fieldName + "은(는) 0 이상이어야 합니다."
+            );
+        }
+        return value;
     }
 
     private List<V2MapSongDefinition> sanitizeSongs(List<V2MapSongDefinition> songs) {

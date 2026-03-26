@@ -10,6 +10,7 @@ import com.lshzzz.mato.model.v2.V2RoomChatMessage;
 import com.lshzzz.mato.model.v2.V2RoomParticipant;
 import com.lshzzz.mato.model.v2.V2RoomSnapshot;
 import com.lshzzz.mato.model.v2.V2RoomSummary;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -26,6 +27,8 @@ public class V2RoomRuntimeService {
     private static final String DEMO_ROOM_NAME = "demo-room";
     private static final String DEMO_HOST_NICKNAME = "host-01";
     private static final String LOBBY_PROMPT = "준비를 마치고 방장이 게임을 시작할 때까지 기다리세요.";
+    private static final String PLAYING_PROMPT = "노래를 듣고 제목을 맞혀보세요.";
+    private static final int DEFAULT_HINT_REVEAL_DELAY_SECONDS = 8;
     private static final V2MapSummary DEMO_MAP = new V2MapSummary(
         12L,
         "Anime Rush",
@@ -277,7 +280,7 @@ public class V2RoomRuntimeService {
             room.phase = V2GamePhase.PLAYING;
             room.round = 1;
             room.currentReveal = null;
-            room.currentPrompt = room.songs.getFirst().clue;
+            startRound(room);
             room.lastEvent = "게임이 시작되었습니다.";
             appendSystemMessage(room, room.lastEvent);
             return successEvent("game.phase.changed", room, room.lastEvent, safeNickname, true);
@@ -343,6 +346,8 @@ public class V2RoomRuntimeService {
             if (room.round >= room.songs.size()) {
                 room.phase = V2GamePhase.FINISHED;
                 room.currentPrompt = "게임이 종료되었습니다. 최종 점수가 확정되었습니다.";
+                room.currentHint = null;
+                room.hintRevealAt = null;
                 RuntimeParticipant winner = getConnectedParticipants(room).stream()
                     .max(Comparator.comparingInt(candidate -> candidate.score))
                     .orElse(participant);
@@ -359,7 +364,7 @@ public class V2RoomRuntimeService {
             }
 
             room.round += 1;
-            room.currentPrompt = room.songs.get(room.round - 1).clue;
+            startRound(room);
             room.lastEvent = room.round + "라운드가 시작되었습니다.";
             appendSystemMessage(room, room.lastEvent);
             return successEvent(
@@ -392,6 +397,8 @@ public class V2RoomRuntimeService {
             if (room.round >= room.songs.size()) {
                 room.phase = V2GamePhase.FINISHED;
                 room.currentPrompt = "게임이 종료되었습니다. 최종 점수가 확정되었습니다.";
+                room.currentHint = null;
+                room.hintRevealAt = null;
                 RuntimeParticipant winner = getConnectedParticipants(room).stream()
                     .max(Comparator.comparingInt(candidate -> candidate.score))
                     .orElse(participant);
@@ -401,7 +408,7 @@ public class V2RoomRuntimeService {
             }
 
             room.round += 1;
-            room.currentPrompt = room.songs.get(room.round - 1).clue;
+            startRound(room);
             room.lastEvent = room.round + "라운드가 시작되었습니다.";
             appendSystemMessage(room, room.lastEvent);
             return successEvent("game.round.started", room, room.lastEvent, participant.nickname, true);
@@ -460,6 +467,9 @@ public class V2RoomRuntimeService {
         room.maxParticipants = 6;
         room.round = 0;
         room.currentPrompt = LOBBY_PROMPT;
+        room.currentHint = null;
+        room.hintRevealAt = null;
+        room.hintRevealDelaySeconds = DEFAULT_HINT_REVEAL_DELAY_SECONDS;
         room.currentReveal = null;
         room.lastEvent = "로비 대기 중";
         room.map = DEMO_MAP;
@@ -503,6 +513,9 @@ public class V2RoomRuntimeService {
         );
         room.round = 0;
         room.currentPrompt = LOBBY_PROMPT;
+        room.currentHint = null;
+        room.hintRevealAt = null;
+        room.hintRevealDelaySeconds = mapDetail.hintRevealDelaySeconds();
         room.currentReveal = null;
         room.songs.clear();
         room.songs.addAll(
@@ -510,6 +523,15 @@ public class V2RoomRuntimeService {
                 .map(this::toRuntimeSong)
                 .toList()
         );
+    }
+
+    private void startRound(RuntimeRoom room) {
+        RuntimeSong currentSong = room.songs.get(room.round - 1);
+        room.currentPrompt = PLAYING_PROMPT;
+        room.currentHint = currentSong.clue();
+        room.hintRevealAt = room.hintRevealDelaySeconds > 0
+            ? Instant.now().plusSeconds(room.hintRevealDelaySeconds)
+            : null;
     }
 
     private RuntimeSong toRuntimeSong(V2MapSongDefinition song) {
@@ -662,6 +684,8 @@ public class V2RoomRuntimeService {
         room.phase = V2GamePhase.LOBBY;
         room.round = 0;
         room.currentPrompt = LOBBY_PROMPT;
+        room.currentHint = null;
+        room.hintRevealAt = null;
         room.currentReveal = null;
         room.participants.clear();
         room.participants.add(new RuntimeParticipant(room.initialHostNickname, false, false));
@@ -742,6 +766,8 @@ public class V2RoomRuntimeService {
             room.round,
             room.songs.size(),
             room.currentPrompt,
+            room.currentHint,
+            room.hintRevealAt == null ? null : room.hintRevealAt.toString(),
             room.lastEvent,
             room.currentReveal,
             participants
@@ -807,6 +833,9 @@ public class V2RoomRuntimeService {
         private int maxParticipants;
         private int round;
         private String currentPrompt;
+        private String currentHint;
+        private Instant hintRevealAt;
+        private int hintRevealDelaySeconds;
         private String currentReveal;
         private String lastEvent;
         private V2MapSummary map;

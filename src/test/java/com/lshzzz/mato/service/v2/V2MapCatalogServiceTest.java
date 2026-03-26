@@ -31,6 +31,7 @@ class V2MapCatalogServiceTest {
                 "normal",
                 "public",
                 35,
+                7,
                 List.of(
                     new V2MapSongDefinition(
                         "문제: 테스트용 곡입니다.",
@@ -43,6 +44,7 @@ class V2MapCatalogServiceTest {
         );
 
         assertThat(created.name()).isEqualTo("Night Drive");
+        assertThat(created.hintRevealDelaySeconds()).isEqualTo(7);
         assertThat(created.songs()).hasSize(1);
         assertThat(mapCatalogService.getMap(created.id()).songs())
             .singleElement()

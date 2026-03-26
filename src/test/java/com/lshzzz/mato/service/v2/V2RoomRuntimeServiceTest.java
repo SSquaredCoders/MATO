@@ -33,6 +33,9 @@ class V2RoomRuntimeServiceTest {
         assertThat(started.snapshot()).isNotNull();
         assertThat(started.snapshot().phase()).isEqualTo(V2GamePhase.PLAYING);
         assertThat(started.snapshot().round()).isEqualTo(1);
+        assertThat(started.snapshot().currentPrompt()).isEqualTo("노래를 듣고 제목을 맞혀보세요.");
+        assertThat(started.snapshot().currentHint()).contains("에반게리온");
+        assertThat(started.snapshot().hintRevealAt()).isNotBlank();
 
         var answered = roomRuntimeService.submitAnswer(
             "demo-room",

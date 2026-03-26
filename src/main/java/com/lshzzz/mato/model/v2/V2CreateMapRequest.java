@@ -13,6 +13,7 @@ public record V2CreateMapRequest(
     @NotBlank String difficulty,
     @NotBlank String visibility,
     @NotNull Integer roundTimeLimitSeconds,
+    @NotNull Integer hintRevealDelaySeconds,
     @Valid @NotEmpty List<V2MapSongDefinition> songs
 ) {
 }

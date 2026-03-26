@@ -183,6 +183,39 @@ Every important update should be able to rehydrate the room screen without extra
 }
 ```
 
+## Game mode and rule settings
+
+The rule source should be split in two layers instead of choosing only map-side or only room-side settings.
+
+- Maps carry default rules and optional locked rules.
+- Rooms copy those defaults on creation and can override only the fields the map leaves open.
+- The room UI should surface the active rules before the match starts.
+
+Recommended rule model:
+
+```json
+{
+  "mode": "solo",
+  "answerResolution": "first-correct",
+  "roundAdvanceRule": "first-correct-immediate",
+  "skipRule": {
+    "type": "vote-threshold",
+    "thresholdType": "count",
+    "thresholdValue": 2
+  },
+  "roundTimeLimitSeconds": 30,
+  "revealAnswerOnRoundEnd": true
+}
+```
+
+Recommended product policy:
+
+- Default to solo mode.
+- Solo mode can still choose between `first-correct-immediate` and `all-correct-or-skip`.
+- Team mode should be a separate room rule, not inferred from the map title.
+- Maps that are designed around a strict format can lock `mode`, `skipRule`, or `roundTimeLimitSeconds`.
+- Room creation UI should show these rules and only allow editing the unlocked fields.
+
 ## Migration policy
 
 - Do not adapt the old websocket event names.

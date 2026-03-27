@@ -604,7 +604,7 @@ public class V2RoomRuntimeService {
         room.roundTimeLimitSeconds = 30;
         room.roundEndsAt = null;
         room.currentReveal = null;
-        room.showMediaControls = false;
+        room.showMediaControls = true;
         room.answerMode = DEFAULT_ANSWER_MODE;
         room.roundFlowMode = DEFAULT_ROUND_FLOW_MODE;
         room.lastEvent = "로비 대기 중";
@@ -694,8 +694,9 @@ public class V2RoomRuntimeService {
         room.hintRevealAt = room.hintRevealDelaySeconds > 0
             ? Instant.now().plusSeconds(room.hintRevealDelaySeconds)
             : null;
-        room.roundEndsAt = room.roundTimeLimitSeconds > 0
-            ? Instant.now().plusSeconds(room.roundTimeLimitSeconds)
+        int effectiveRoundTimeLimitSeconds = resolveRoundTimeLimitSeconds(room, currentSong);
+        room.roundEndsAt = effectiveRoundTimeLimitSeconds > 0
+            ? Instant.now().plusSeconds(effectiveRoundTimeLimitSeconds)
             : null;
         room.currentReveal = null;
         room.roundScorers.clear();
@@ -713,6 +714,18 @@ public class V2RoomRuntimeService {
             song.clipStartSeconds() == null ? 0 : song.clipStartSeconds(),
             song.clipEndSeconds()
         );
+    }
+
+    private int resolveRoundTimeLimitSeconds(RuntimeRoom room, RuntimeSong currentSong) {
+        int configuredRoundTimeLimitSeconds = room.roundTimeLimitSeconds;
+        Integer clipEndSeconds = currentSong.clipEndSeconds();
+
+        if (clipEndSeconds == null) {
+            return configuredRoundTimeLimitSeconds;
+        }
+
+        int clipLengthSeconds = Math.max(0, clipEndSeconds - currentSong.clipStartSeconds());
+        return Math.max(configuredRoundTimeLimitSeconds, clipLengthSeconds);
     }
 
     private RuntimeRoom getRequiredRoom(String roomName) {

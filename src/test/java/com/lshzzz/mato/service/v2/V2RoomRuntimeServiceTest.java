@@ -237,4 +237,53 @@ class V2RoomRuntimeServiceTest {
             .singleElement()
             .satisfies(participant -> assertThat(participant.score()).isEqualTo(1));
     }
+
+    @Test
+    void extendsRoundTimeWhenClipLengthExceedsDefault() {
+        var createdMap = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Timed Queue",
+                "clip length decides round time",
+                "host-01",
+                "normal",
+                "public",
+                true,
+                "single-lock",
+                "timer-or-skip",
+                5,
+                0,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: fast song",
+                        "Blue Bird",
+                        "Ikimono-gakari",
+                        List.of("blue bird"),
+                        "youtube",
+                        "https://youtu.be/example-blue-bird",
+                        "Blue Bird demo",
+                        0,
+                        9
+                    )
+                )
+            )
+        );
+
+        roomRuntimeService.createRoom(
+            new V2CreateRoomRequest("timed room", "host-01", createdMap.id())
+        );
+        roomRuntimeService.joinRoom("session-host", "timed-room", "host-01");
+        roomRuntimeService.joinRoom("session-guest", "timed-room", "guest-01");
+        roomRuntimeService.setReady("timed-room", "host-01", true);
+        roomRuntimeService.setReady("timed-room", "guest-01", true);
+
+        var started = roomRuntimeService.startGame("timed-room", "host-01");
+
+        assertThat(started.snapshot()).isNotNull();
+        assertThat(started.snapshot().roundEndsAt()).isNotBlank();
+        long secondsUntilEnd = java.time.Duration.between(
+            java.time.Instant.now(),
+            java.time.Instant.parse(started.snapshot().roundEndsAt())
+        ).getSeconds();
+        assertThat(secondsUntilEnd).isBetween(7L, 9L);
+    }
 }

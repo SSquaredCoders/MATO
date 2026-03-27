@@ -129,4 +129,5 @@ class V2MapCatalogServiceTest {
             .extracting("name")
             .containsExactly("My Queue");
     }
+
 }

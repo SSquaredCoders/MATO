@@ -10,14 +10,20 @@ public record V2RoomSnapshot(
     int maxParticipants,
     int round,
     int totalRounds,
+    String answerMode,
+    String roundFlowMode,
     String currentPrompt,
     String currentHint,
     String hintRevealAt,
+    String roundEndsAt,
     String lastEvent,
     String currentReveal,
+    boolean showMediaControls,
     String currentAudioSourceType,
     String currentAudioSourceValue,
     String currentAudioSourceLabel,
+    Integer currentClipStartSeconds,
+    Integer currentClipEndSeconds,
     List<V2RoomParticipant> participants
 ) {
 }

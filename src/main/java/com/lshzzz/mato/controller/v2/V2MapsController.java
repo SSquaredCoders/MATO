@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -38,5 +39,13 @@ public class V2MapsController {
     @ResponseStatus(HttpStatus.CREATED)
     public V2MapDetail createMap(@Valid @RequestBody V2CreateMapRequest request) {
         return mapCatalogService.createMap(request);
+    }
+
+    @PutMapping("/{mapId}")
+    public V2MapDetail updateMap(
+        @PathVariable long mapId,
+        @Valid @RequestBody V2CreateMapRequest request
+    ) {
+        return mapCatalogService.updateMap(mapId, request);
     }
 }

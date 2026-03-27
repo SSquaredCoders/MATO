@@ -12,6 +12,9 @@ public record V2CreateMapRequest(
     @NotBlank String createdBy,
     @NotBlank String difficulty,
     @NotBlank String visibility,
+    @NotNull Boolean showMediaControls,
+    @NotBlank String answerMode,
+    @NotBlank String roundFlowMode,
     @NotNull Integer roundTimeLimitSeconds,
     @NotNull Integer hintRevealDelaySeconds,
     @Valid @NotEmpty List<V2MapSongDefinition> songs

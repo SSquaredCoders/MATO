@@ -55,6 +55,12 @@ public class V2MapSongEntity extends BaseEntity {
     @Column(length = 255)
     private String audioSourceLabel;
 
+    @Column
+    private Integer clipStartSeconds;
+
+    @Column
+    private Integer clipEndSeconds;
+
     @ElementCollection
     @CollectionTable(
         name = "v2_map_song_answers",
@@ -72,7 +78,9 @@ public class V2MapSongEntity extends BaseEntity {
         List<String> answers,
         String audioSourceType,
         String audioSourceValue,
-        String audioSourceLabel
+        String audioSourceLabel,
+        int clipStartSeconds,
+        Integer clipEndSeconds
     ) {
         this.songOrder = songOrder;
         this.clue = clue;
@@ -82,6 +90,8 @@ public class V2MapSongEntity extends BaseEntity {
         this.audioSourceType = audioSourceType;
         this.audioSourceValue = audioSourceValue;
         this.audioSourceLabel = audioSourceLabel;
+        this.clipStartSeconds = clipStartSeconds;
+        this.clipEndSeconds = clipEndSeconds;
     }
 
     public static V2MapSongEntity create(int songOrder, V2MapSongDefinition song) {
@@ -93,7 +103,9 @@ public class V2MapSongEntity extends BaseEntity {
             song.answers(),
             song.audioSourceType(),
             song.audioSourceValue(),
-            song.audioSourceLabel()
+            song.audioSourceLabel(),
+            song.clipStartSeconds() == null ? 0 : song.clipStartSeconds(),
+            song.clipEndSeconds()
         );
     }
 

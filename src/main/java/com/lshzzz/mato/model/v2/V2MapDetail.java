@@ -9,6 +9,9 @@ public record V2MapDetail(
     String createdBy,
     String difficulty,
     String visibility,
+    boolean showMediaControls,
+    String answerMode,
+    String roundFlowMode,
     int roundTimeLimitSeconds,
     int hintRevealDelaySeconds,
     List<V2MapSongDefinition> songs

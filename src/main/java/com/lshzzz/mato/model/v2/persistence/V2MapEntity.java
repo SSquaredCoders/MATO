@@ -42,6 +42,15 @@ public class V2MapEntity extends BaseEntity {
     @Column(nullable = false, length = 16)
     private String visibility;
 
+    @Column
+    private Boolean showMediaControls;
+
+    @Column(length = 32)
+    private String answerMode;
+
+    @Column(length = 32)
+    private String roundFlowMode;
+
     @Column(nullable = false)
     private Integer roundTimeLimitSeconds;
 
@@ -58,6 +67,9 @@ public class V2MapEntity extends BaseEntity {
         String createdBy,
         String difficulty,
         String visibility,
+        boolean showMediaControls,
+        String answerMode,
+        String roundFlowMode,
         int roundTimeLimitSeconds,
         int hintRevealDelaySeconds
     ) {
@@ -66,6 +78,9 @@ public class V2MapEntity extends BaseEntity {
         this.createdBy = createdBy;
         this.difficulty = difficulty;
         this.visibility = visibility;
+        this.showMediaControls = showMediaControls;
+        this.answerMode = answerMode;
+        this.roundFlowMode = roundFlowMode;
         this.roundTimeLimitSeconds = roundTimeLimitSeconds;
         this.hintRevealDelaySeconds = hintRevealDelaySeconds;
     }
@@ -76,6 +91,9 @@ public class V2MapEntity extends BaseEntity {
         String createdBy,
         String difficulty,
         String visibility,
+        boolean showMediaControls,
+        String answerMode,
+        String roundFlowMode,
         int roundTimeLimitSeconds,
         int hintRevealDelaySeconds,
         List<V2MapSongDefinition> songs
@@ -86,6 +104,9 @@ public class V2MapEntity extends BaseEntity {
             createdBy,
             difficulty,
             visibility,
+            showMediaControls,
+            answerMode,
+            roundFlowMode,
             roundTimeLimitSeconds,
             hintRevealDelaySeconds
         );
@@ -93,6 +114,33 @@ public class V2MapEntity extends BaseEntity {
             entity.addSong(V2MapSongEntity.create(index, songs.get(index)));
         }
         return entity;
+    }
+
+    public void update(
+        String name,
+        String description,
+        String difficulty,
+        String visibility,
+        boolean showMediaControls,
+        String answerMode,
+        String roundFlowMode,
+        int roundTimeLimitSeconds,
+        int hintRevealDelaySeconds,
+        List<V2MapSongDefinition> songs
+    ) {
+        this.name = name;
+        this.description = description;
+        this.difficulty = difficulty;
+        this.visibility = visibility;
+        this.showMediaControls = showMediaControls;
+        this.answerMode = answerMode;
+        this.roundFlowMode = roundFlowMode;
+        this.roundTimeLimitSeconds = roundTimeLimitSeconds;
+        this.hintRevealDelaySeconds = hintRevealDelaySeconds;
+        this.songs.clear();
+        for (int index = 0; index < songs.size(); index += 1) {
+            addSong(V2MapSongEntity.create(index, songs.get(index)));
+        }
     }
 
     private void addSong(V2MapSongEntity song) {

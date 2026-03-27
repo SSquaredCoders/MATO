@@ -40,6 +40,9 @@ class V2MapCatalogServiceTest {
                 "host-01",
                 "normal",
                 "public",
+                false,
+                "single-lock",
+                "advance-on-correct",
                 35,
                 7,
                 List.of(
@@ -71,6 +74,9 @@ class V2MapCatalogServiceTest {
                 "guest-77",
                 "normal",
                 "private",
+                false,
+                "single-lock",
+                "advance-on-correct",
                 25,
                 5,
                 List.of(
@@ -81,7 +87,9 @@ class V2MapCatalogServiceTest {
                         List.of("blue bird"),
                         "youtube",
                         "https://youtu.be/example-blue-bird",
-                        "Blue Bird demo"
+                        "Blue Bird demo",
+                        0,
+                        null
                     )
                 )
             )
@@ -101,6 +109,9 @@ class V2MapCatalogServiceTest {
                 "host-01",
                 "normal",
                 "public",
+                false,
+                "single-lock",
+                "advance-on-correct",
                 25,
                 5,
                 List.of(

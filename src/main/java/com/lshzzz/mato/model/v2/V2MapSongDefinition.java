@@ -11,7 +11,9 @@ public record V2MapSongDefinition(
     @NotEmpty List<@NotBlank String> answers,
     String audioSourceType,
     String audioSourceValue,
-    String audioSourceLabel
+    String audioSourceLabel,
+    Integer clipStartSeconds,
+    Integer clipEndSeconds
 ) {
 
     public V2MapSongDefinition(
@@ -20,6 +22,6 @@ public record V2MapSongDefinition(
         String artist,
         List<String> answers
     ) {
-        this(clue, title, artist, answers, null, null, null);
+        this(clue, title, artist, answers, null, null, null, 0, null);
     }
 }

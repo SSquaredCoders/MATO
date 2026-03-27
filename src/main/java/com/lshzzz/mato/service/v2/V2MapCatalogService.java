@@ -39,17 +39,40 @@ public class V2MapCatalogService {
 
     @Transactional
     public V2MapDetail createMap(V2CreateMapRequest request) {
+        List<V2MapSongDefinition> songs = sanitizeSongs(request.songs());
         V2MapEntity map = V2MapEntity.create(
             sanitize(request.name()),
             Objects.requireNonNullElse(request.description(), "").trim(),
             sanitize(request.createdBy()),
             normalizeDifficulty(request.difficulty()),
             normalizeVisibility(request.visibility()),
+            request.showMediaControls(),
+            normalizeAnswerMode(request.answerMode()),
+            normalizeRoundFlowMode(request.roundFlowMode(), request.answerMode()),
             sanitizeNonNegative(request.roundTimeLimitSeconds(), "round time limit"),
             sanitizeNonNegative(request.hintRevealDelaySeconds(), "hint reveal delay"),
-            sanitizeSongs(request.songs())
+            songs
         );
         return toDetail(mapRepository.save(map));
+    }
+
+    @Transactional
+    public V2MapDetail updateMap(long mapId, V2CreateMapRequest request) {
+        V2MapEntity map = getRequiredMap(mapId, request.createdBy());
+        List<V2MapSongDefinition> songs = sanitizeSongs(request.songs());
+        map.update(
+            sanitize(request.name()),
+            Objects.requireNonNullElse(request.description(), "").trim(),
+            normalizeDifficulty(request.difficulty()),
+            normalizeVisibility(request.visibility()),
+            request.showMediaControls(),
+            normalizeAnswerMode(request.answerMode()),
+            normalizeRoundFlowMode(request.roundFlowMode(), request.answerMode()),
+            sanitizeNonNegative(request.roundTimeLimitSeconds(), "round time limit"),
+            sanitizeNonNegative(request.hintRevealDelaySeconds(), "hint reveal delay"),
+            songs
+        );
+        return toDetail(map);
     }
 
     public V2MapSummary getSummary(long mapId, String viewer) {
@@ -89,6 +112,9 @@ public class V2MapCatalogService {
             map.getCreatedBy(),
             map.getDifficulty(),
             map.getVisibility(),
+            Boolean.TRUE.equals(map.getShowMediaControls()),
+            coalesceAnswerMode(map.getAnswerMode()),
+            coalesceRoundFlowMode(map.getRoundFlowMode()),
             map.getRoundTimeLimitSeconds(),
             map.getHintRevealDelaySeconds(),
             map.getSongs().stream()
@@ -105,7 +131,9 @@ public class V2MapCatalogService {
             List.copyOf(song.getAnswers()),
             song.getAudioSourceType(),
             song.getAudioSourceValue(),
-            song.getAudioSourceLabel()
+            song.getAudioSourceLabel(),
+            Objects.requireNonNullElse(song.getClipStartSeconds(), 0),
+            song.getClipEndSeconds()
         );
     }
 
@@ -163,7 +191,9 @@ public class V2MapCatalogService {
                     .toList(),
                 normalizeAudioSourceType(song.audioSourceType()),
                 sanitizeOptional(song.audioSourceValue()),
-                sanitizeOptional(song.audioSourceLabel())
+                sanitizeOptional(song.audioSourceLabel()),
+                sanitizeNonNegative(Objects.requireNonNullElse(song.clipStartSeconds(), 0), "clip start"),
+                sanitizeOptionalClipEnd(song.clipStartSeconds(), song.clipEndSeconds())
             ))
             .toList();
 
@@ -186,8 +216,60 @@ public class V2MapCatalogService {
         };
     }
 
+    private String normalizeAnswerMode(String value) {
+        String candidate = sanitize(value).toLowerCase();
+        return switch (candidate) {
+            case "single-lock", "multi-score" -> candidate;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported answer mode.");
+        };
+    }
+
+    private String normalizeRoundFlowMode(String value, String answerMode) {
+        String candidate = sanitize(value).toLowerCase();
+        String normalizedAnswerMode = normalizeAnswerMode(answerMode);
+        String normalized = switch (candidate) {
+            case "advance-on-correct", "timer-or-skip" -> candidate;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported round flow mode.");
+        };
+
+        if ("multi-score".equals(normalizedAnswerMode) && "advance-on-correct".equals(normalized)) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Multi-score maps must use timer-or-skip."
+            );
+        }
+
+        return normalized;
+    }
+
+    private Integer sanitizeOptionalClipEnd(Integer clipStartSeconds, Integer clipEndSeconds) {
+        if (clipEndSeconds == null) {
+            return null;
+        }
+
+        int normalizedEnd = sanitizeNonNegative(clipEndSeconds, "clip end");
+        int normalizedStart = sanitizeNonNegative(Objects.requireNonNullElse(clipStartSeconds, 0), "clip start");
+
+        if (normalizedEnd <= normalizedStart) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "clip end must be greater than clip start."
+            );
+        }
+
+        return normalizedEnd;
+    }
+
     private String sanitizeOptional(String value) {
         String candidate = Objects.requireNonNullElse(value, "").trim();
         return candidate.isBlank() ? null : candidate;
+    }
+
+    private String coalesceAnswerMode(String value) {
+        return value == null || value.isBlank() ? "single-lock" : value;
+    }
+
+    private String coalesceRoundFlowMode(String value) {
+        return value == null || value.isBlank() ? "advance-on-correct" : value;
     }
 }

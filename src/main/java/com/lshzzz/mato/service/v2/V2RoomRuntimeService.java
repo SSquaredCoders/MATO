@@ -13,9 +13,11 @@ import com.lshzzz.mato.model.v2.V2RoomSummary;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,8 @@ public class V2RoomRuntimeService {
 
     private static final String DEMO_ROOM_NAME = "demo-room";
     private static final String DEMO_HOST_NICKNAME = "host-01";
+    private static final String DEFAULT_ANSWER_MODE = "single-lock";
+    private static final String DEFAULT_ROUND_FLOW_MODE = "advance-on-correct";
     private static final String LOBBY_PROMPT = "준비를 마치고 방장이 게임을 시작할 때까지 기다리세요.";
     private static final String PLAYING_PROMPT = "노래를 듣고 제목을 맞혀보세요.";
     private static final int DEFAULT_HINT_REVEAL_DELAY_SECONDS = 8;
@@ -62,6 +66,19 @@ public class V2RoomRuntimeService {
     public V2RoomSnapshot getRoomSnapshot(String roomName) {
         synchronized (monitor) {
             return toSnapshot(getRequiredRoom(roomName));
+        }
+    }
+
+    public List<EventResult> collectScheduledEvents() {
+        synchronized (monitor) {
+            List<EventResult> events = new ArrayList<>();
+            for (RuntimeRoom room : rooms.values()) {
+                EventResult event = advanceIfRoundExpired(room);
+                if (event != null) {
+                    events.add(event);
+                }
+            }
+            return events;
         }
     }
 
@@ -290,6 +307,10 @@ public class V2RoomRuntimeService {
     public EventResult submitAnswer(String roomName, String nickname, String answer) {
         synchronized (monitor) {
             RuntimeRoom room = getRequiredRoom(roomName);
+            EventResult expiredEvent = advanceIfRoundExpired(room);
+            if (expiredEvent != null) {
+                return expiredEvent;
+            }
             RuntimeParticipant participant = getRequiredConnectedParticipant(room, nickname);
             String safeAnswer = Objects.requireNonNullElse(answer, "").trim();
 
@@ -323,9 +344,13 @@ public class V2RoomRuntimeService {
             V2RoomChatMessage chatMessage = buildChatMessage(
                 room.roomName,
                 participant.nickname,
-                correct ? currentSong.title + " - " + currentSong.artist : safeAnswer,
+                !correct
+                    ? safeAnswer
+                    : isSingleLockMode(room)
+                        ? currentSong.title + " - " + currentSong.artist
+                        : currentSong.title + " - " + currentSong.artist,
                 correct ? "correct" : "chat",
-                "public"
+                correct && !isSingleLockMode(room) ? "self-only" : "public"
             );
 
             if (!correct) {
@@ -340,21 +365,36 @@ public class V2RoomRuntimeService {
                 );
             }
 
-            participant.score += 1;
-            room.currentReveal = currentSong.title + " - " + currentSong.artist;
-
-            if (room.round >= room.songs.size()) {
-                room.phase = V2GamePhase.FINISHED;
-                room.currentPrompt = "게임이 종료되었습니다. 최종 점수가 확정되었습니다.";
-                room.currentHint = null;
-                room.hintRevealAt = null;
-                RuntimeParticipant winner = getConnectedParticipants(room).stream()
-                    .max(Comparator.comparingInt(candidate -> candidate.score))
-                    .orElse(participant);
-                room.lastEvent = "우승: " + winner.nickname + " (" + winner.score + "점)";
-                appendSystemMessage(room, room.lastEvent);
+            if (room.roundScorers.contains(participant.nickname)) {
                 return successEvent(
-                    "game.finished",
+                    "room.chat.message",
+                    room,
+                    "이미 이 라운드 점수를 획득했습니다.",
+                    participant.nickname,
+                    false,
+                    chatMessage
+                );
+            }
+
+            if (isSingleLockMode(room) && !room.roundScorers.isEmpty()) {
+                return successEvent(
+                    "room.chat.message",
+                    room,
+                    "이번 문제는 이미 먼저 맞힌 사람이 있습니다.",
+                    participant.nickname,
+                    false,
+                    chatMessage
+                );
+            }
+
+            participant.score += 1;
+            room.roundScorers.add(participant.nickname);
+
+            if (isSingleLockMode(room) && usesTimerOrSkipFlow(room)) {
+                room.currentReveal = currentSong.title + " - " + currentSong.artist;
+                room.lastEvent = participant.nickname + "님이 먼저 정답을 맞혔습니다.";
+                return successEvent(
+                    "game.answer.accepted",
                     room,
                     participant.nickname + "님의 정답: " + currentSong.title,
                     participant.nickname,
@@ -363,10 +403,29 @@ public class V2RoomRuntimeService {
                 );
             }
 
-            room.round += 1;
-            startRound(room);
-            room.lastEvent = room.round + "라운드가 시작되었습니다.";
-            appendSystemMessage(room, room.lastEvent);
+            if (isSingleLockMode(room)) {
+                room.currentReveal = currentSong.title + " - " + currentSong.artist;
+                return advanceResolvedRound(
+                    room,
+                    participant.nickname,
+                    participant.nickname + "님의 정답: " + currentSong.title,
+                    "game.answer.accepted",
+                    chatMessage
+                );
+            }
+
+            room.lastEvent = participant.nickname + "님이 정답을 맞혔습니다.";
+            if (allConnectedParticipantsScored(room)) {
+                room.currentReveal = currentSong.title + " - " + currentSong.artist;
+                return advanceResolvedRound(
+                    room,
+                    participant.nickname,
+                    "모든 참가자가 정답을 맞혀 다음 곡으로 넘어갑니다.",
+                    "game.answer.accepted",
+                    chatMessage
+                );
+            }
+
             return successEvent(
                 "game.answer.accepted",
                 room,
@@ -381,45 +440,117 @@ public class V2RoomRuntimeService {
     public EventResult nextRound(String roomName, String nickname) {
         synchronized (monitor) {
             RuntimeRoom room = getRequiredRoom(roomName);
+            EventResult expiredEvent = advanceIfRoundExpired(room);
+            if (expiredEvent != null) {
+                return expiredEvent;
+            }
             RuntimeParticipant participant = getRequiredConnectedParticipant(room, nickname);
 
             if (!room.hostNickname.equals(participant.nickname)) {
-                return errorEvent(roomName, "방장만 다음 라운드로 넘길 수 있습니다.");
+                return errorEvent(roomName, "방장만 다음 곡으로 넘길 수 있습니다.");
             }
 
             if (room.phase != V2GamePhase.PLAYING) {
-                return errorEvent(roomName, "게임이 진행 중이 아닙니다.");
+                return errorEvent(roomName, "게임 진행 중일 때만 스킵할 수 있습니다.");
             }
 
             RuntimeSong currentSong = room.songs.get(room.round - 1);
             room.currentReveal = currentSong.title + " - " + currentSong.artist;
-
-            if (room.round >= room.songs.size()) {
-                room.phase = V2GamePhase.FINISHED;
-                room.currentPrompt = "게임이 종료되었습니다. 최종 점수가 확정되었습니다.";
-                room.currentHint = null;
-                room.hintRevealAt = null;
-                RuntimeParticipant winner = getConnectedParticipants(room).stream()
-                    .max(Comparator.comparingInt(candidate -> candidate.score))
-                    .orElse(participant);
-                room.lastEvent = "우승: " + winner.nickname + " (" + winner.score + "점)";
-                appendSystemMessage(room, room.lastEvent);
-                return successEvent("game.finished", room, "게임이 종료되었습니다.", participant.nickname, true);
-            }
-
-            room.round += 1;
-            startRound(room);
-            room.lastEvent = room.round + "라운드가 시작되었습니다.";
-            appendSystemMessage(room, room.lastEvent);
-            return successEvent("game.round.started", room, room.lastEvent, participant.nickname, true);
+            return advanceResolvedRound(
+                room,
+                participant.nickname,
+                participant.nickname + "님이 현재 곡을 스킵했습니다.",
+                "game.round.started",
+                null
+            );
         }
     }
 
     public EventResult snapshotEvent(String roomName, String message) {
         synchronized (monitor) {
             RuntimeRoom room = getRequiredRoom(roomName);
+            EventResult expiredEvent = advanceIfRoundExpired(room);
+            if (expiredEvent != null) {
+                return expiredEvent;
+            }
             return successEvent("room.snapshot", room, message, null, true);
         }
+    }
+
+    private EventResult advanceResolvedRound(
+        RuntimeRoom room,
+        String actorNickname,
+        String message,
+        String eventType,
+        V2RoomChatMessage chatMessage
+    ) {
+        if (room.round >= room.songs.size()) {
+            return finishGame(room, actorNickname, message, chatMessage);
+        }
+
+        room.round += 1;
+        startRound(room);
+        room.lastEvent = room.round + "라운드가 시작되었습니다.";
+        appendSystemMessage(room, room.lastEvent);
+        return successEvent(eventType, room, message, actorNickname, true, chatMessage);
+    }
+
+    private EventResult finishGame(
+        RuntimeRoom room,
+        String actorNickname,
+        String message,
+        V2RoomChatMessage chatMessage
+    ) {
+        room.phase = V2GamePhase.FINISHED;
+        room.currentPrompt = "게임이 종료되었습니다. 최종 점수를 확인하세요.";
+        room.currentHint = null;
+        room.hintRevealAt = null;
+        room.roundEndsAt = null;
+        RuntimeParticipant winner = getConnectedParticipants(room).stream()
+            .max(Comparator.comparingInt(candidate -> candidate.score))
+            .orElse(null);
+        if (winner != null) {
+            room.lastEvent = "우승: " + winner.nickname + " (" + winner.score + "점)";
+            appendSystemMessage(room, room.lastEvent);
+        }
+        return successEvent("game.finished", room, message, actorNickname, true, chatMessage);
+    }
+
+    private EventResult advanceIfRoundExpired(RuntimeRoom room) {
+        if (
+            room.phase != V2GamePhase.PLAYING ||
+            room.roundEndsAt == null ||
+            room.roundEndsAt.isAfter(Instant.now())
+        ) {
+            return null;
+        }
+
+        RuntimeSong currentSong = room.songs.get(room.round - 1);
+        if (room.currentReveal == null) {
+            room.currentReveal = currentSong.title + " - " + currentSong.artist;
+        }
+
+        return advanceResolvedRound(
+            room,
+            room.hostNickname,
+            "라운드 시간이 종료되어 다음 곡으로 넘어갑니다.",
+            "game.round.started",
+            null
+        );
+    }
+
+    private boolean allConnectedParticipantsScored(RuntimeRoom room) {
+        List<RuntimeParticipant> connectedParticipants = getConnectedParticipants(room);
+        return !connectedParticipants.isEmpty() && connectedParticipants.stream()
+            .allMatch(participant -> room.roundScorers.contains(participant.nickname));
+    }
+
+    private boolean isSingleLockMode(RuntimeRoom room) {
+        return DEFAULT_ANSWER_MODE.equals(room.answerMode);
+    }
+
+    private boolean usesTimerOrSkipFlow(RuntimeRoom room) {
+        return "timer-or-skip".equals(room.roundFlowMode);
     }
 
     private EventResult successEvent(
@@ -470,7 +601,12 @@ public class V2RoomRuntimeService {
         room.currentHint = null;
         room.hintRevealAt = null;
         room.hintRevealDelaySeconds = DEFAULT_HINT_REVEAL_DELAY_SECONDS;
+        room.roundTimeLimitSeconds = 30;
+        room.roundEndsAt = null;
         room.currentReveal = null;
+        room.showMediaControls = false;
+        room.answerMode = DEFAULT_ANSWER_MODE;
+        room.roundFlowMode = DEFAULT_ROUND_FLOW_MODE;
         room.lastEvent = "로비 대기 중";
         room.map = DEMO_MAP;
         room.participants.add(new RuntimeParticipant(hostNickname, false, false));
@@ -482,6 +618,8 @@ public class V2RoomRuntimeService {
                 List.of("a cruel angel's thesis", "zankoku na tenshi no thesis"),
                 null,
                 null,
+                null,
+                0,
                 null
             ),
             new RuntimeSong(
@@ -491,6 +629,8 @@ public class V2RoomRuntimeService {
                 List.of("gurenge"),
                 null,
                 null,
+                null,
+                0,
                 null
             ),
             new RuntimeSong(
@@ -500,6 +640,8 @@ public class V2RoomRuntimeService {
                 List.of("again"),
                 null,
                 null,
+                null,
+                0,
                 null
             ),
             new RuntimeSong(
@@ -509,6 +651,8 @@ public class V2RoomRuntimeService {
                 List.of("silhouette"),
                 null,
                 null,
+                null,
+                0,
                 null
             )
         ));
@@ -527,8 +671,14 @@ public class V2RoomRuntimeService {
         room.currentPrompt = LOBBY_PROMPT;
         room.currentHint = null;
         room.hintRevealAt = null;
+        room.roundEndsAt = null;
+        room.roundTimeLimitSeconds = mapDetail.roundTimeLimitSeconds();
         room.hintRevealDelaySeconds = mapDetail.hintRevealDelaySeconds();
         room.currentReveal = null;
+        room.showMediaControls = mapDetail.showMediaControls();
+        room.answerMode = mapDetail.answerMode();
+        room.roundFlowMode = mapDetail.roundFlowMode();
+        room.roundScorers.clear();
         room.songs.clear();
         room.songs.addAll(
             mapDetail.songs().stream()
@@ -544,6 +694,11 @@ public class V2RoomRuntimeService {
         room.hintRevealAt = room.hintRevealDelaySeconds > 0
             ? Instant.now().plusSeconds(room.hintRevealDelaySeconds)
             : null;
+        room.roundEndsAt = room.roundTimeLimitSeconds > 0
+            ? Instant.now().plusSeconds(room.roundTimeLimitSeconds)
+            : null;
+        room.currentReveal = null;
+        room.roundScorers.clear();
     }
 
     private RuntimeSong toRuntimeSong(V2MapSongDefinition song) {
@@ -554,7 +709,9 @@ public class V2RoomRuntimeService {
             song.answers(),
             song.audioSourceType(),
             song.audioSourceValue(),
-            song.audioSourceLabel()
+            song.audioSourceLabel(),
+            song.clipStartSeconds() == null ? 0 : song.clipStartSeconds(),
+            song.clipEndSeconds()
         );
     }
 
@@ -701,7 +858,9 @@ public class V2RoomRuntimeService {
         room.currentPrompt = LOBBY_PROMPT;
         room.currentHint = null;
         room.hintRevealAt = null;
+        room.roundEndsAt = null;
         room.currentReveal = null;
+        room.roundScorers.clear();
         room.participants.clear();
         room.participants.add(new RuntimeParticipant(room.initialHostNickname, false, false));
     }
@@ -784,14 +943,20 @@ public class V2RoomRuntimeService {
             room.maxParticipants,
             room.round,
             room.songs.size(),
+            room.answerMode,
+            room.roundFlowMode,
             room.currentPrompt,
             room.currentHint,
             room.hintRevealAt == null ? null : room.hintRevealAt.toString(),
+            room.roundEndsAt == null ? null : room.roundEndsAt.toString(),
             room.lastEvent,
             room.currentReveal,
+            room.showMediaControls,
             currentSong == null ? null : currentSong.audioSourceType(),
             currentSong == null ? null : currentSong.audioSourceValue(),
             currentSong == null ? null : currentSong.audioSourceLabel(),
+            currentSong == null ? null : currentSong.clipStartSeconds(),
+            currentSong == null ? null : currentSong.clipEndSeconds(),
             participants
         );
     }
@@ -857,12 +1022,18 @@ public class V2RoomRuntimeService {
         private String currentPrompt;
         private String currentHint;
         private Instant hintRevealAt;
+        private Instant roundEndsAt;
         private int hintRevealDelaySeconds;
+        private int roundTimeLimitSeconds;
         private String currentReveal;
+        private boolean showMediaControls;
+        private String answerMode;
+        private String roundFlowMode;
         private String lastEvent;
         private V2MapSummary map;
         private final List<RuntimeParticipant> participants = new ArrayList<>();
         private final List<RuntimeSong> songs = new ArrayList<>();
+        private final Set<String> roundScorers = new HashSet<>();
     }
 
     private static final class RuntimeParticipant {
@@ -886,7 +1057,9 @@ public class V2RoomRuntimeService {
         List<String> answers,
         String audioSourceType,
         String audioSourceValue,
-        String audioSourceLabel
+        String audioSourceLabel,
+        int clipStartSeconds,
+        Integer clipEndSeconds
     ) {
     }
 

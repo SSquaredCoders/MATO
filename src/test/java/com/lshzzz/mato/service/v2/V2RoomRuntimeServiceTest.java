@@ -134,6 +134,9 @@ class V2RoomRuntimeServiceTest {
                 "host-01",
                 "hard",
                 "public",
+                false,
+                "single-lock",
+                "advance-on-correct",
                 25,
                 6,
                 List.of(
@@ -166,5 +169,72 @@ class V2RoomRuntimeServiceTest {
         assertThat(snapshot.map()).isNotNull();
         assertThat(snapshot.map().name()).isEqualTo("Boss Battle");
         assertThat(snapshot.totalRounds()).isEqualTo(3);
+    }
+
+    @Test
+    void keepsRoundOpenForMultiScoreMapsUntilEveryoneAnswers() {
+        var createdMap = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Free For All",
+                "multi score map",
+                "host-01",
+                "normal",
+                "public",
+                false,
+                "multi-score",
+                "timer-or-skip",
+                18,
+                0,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: first song",
+                        "File Round",
+                        "Codex",
+                        List.of("file round")
+                    ),
+                    new V2MapSongDefinition(
+                        "Hint: second song",
+                        "Second Round",
+                        "Codex",
+                        List.of("second round")
+                    )
+                )
+            )
+        );
+
+        roomRuntimeService.createRoom(
+            new V2CreateRoomRequest("ffa room", "host-01", createdMap.id())
+        );
+        roomRuntimeService.joinRoom("session-host", "ffa-room", "host-01");
+        roomRuntimeService.joinRoom("session-guest", "ffa-room", "guest-01");
+        roomRuntimeService.setReady("ffa-room", "host-01", true);
+        roomRuntimeService.setReady("ffa-room", "guest-01", true);
+        roomRuntimeService.startGame("ffa-room", "host-01");
+
+        var firstCorrect = roomRuntimeService.submitAnswer(
+            "ffa-room",
+            "host-01",
+            "file round"
+        );
+
+        assertThat(firstCorrect.snapshot()).isNotNull();
+        assertThat(firstCorrect.snapshot().round()).isEqualTo(1);
+        assertThat(firstCorrect.snapshot().participants())
+            .filteredOn(participant -> participant.nickname().equals("host-01"))
+            .singleElement()
+            .satisfies(participant -> assertThat(participant.score()).isEqualTo(1));
+
+        var secondCorrect = roomRuntimeService.submitAnswer(
+            "ffa-room",
+            "guest-01",
+            "file round"
+        );
+
+        assertThat(secondCorrect.snapshot()).isNotNull();
+        assertThat(secondCorrect.snapshot().round()).isEqualTo(2);
+        assertThat(secondCorrect.snapshot().participants())
+            .filteredOn(participant -> participant.nickname().equals("guest-01"))
+            .singleElement()
+            .satisfies(participant -> assertThat(participant.score()).isEqualTo(1));
     }
 }

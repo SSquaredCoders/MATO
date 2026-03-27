@@ -479,25 +479,37 @@ public class V2RoomRuntimeService {
                 "A Cruel Angel's Thesis",
                 "Yoko Takahashi",
                 "문제: 일본 애니메이션 에반게리온 오프닝입니다. 곡 제목을 입력하세요.",
-                List.of("a cruel angel's thesis", "zankoku na tenshi no thesis")
+                List.of("a cruel angel's thesis", "zankoku na tenshi no thesis"),
+                null,
+                null,
+                null
             ),
             new RuntimeSong(
                 "Gurenge",
                 "LiSA",
                 "문제: 귀멸의 칼날 1기 오프닝입니다.",
-                List.of("gurenge")
+                List.of("gurenge"),
+                null,
+                null,
+                null
             ),
             new RuntimeSong(
                 "Again",
                 "YUI",
                 "문제: 강철의 연금술사 브라더후드 1기 오프닝입니다.",
-                List.of("again")
+                List.of("again"),
+                null,
+                null,
+                null
             ),
             new RuntimeSong(
                 "Silhouette",
                 "KANA-BOON",
                 "문제: 나루토 질풍전 16기 오프닝입니다.",
-                List.of("silhouette")
+                List.of("silhouette"),
+                null,
+                null,
+                null
             )
         ));
         return room;
@@ -539,7 +551,10 @@ public class V2RoomRuntimeService {
             song.title(),
             song.artist(),
             song.clue(),
-            song.answers()
+            song.answers(),
+            song.audioSourceType(),
+            song.audioSourceValue(),
+            song.audioSourceLabel()
         );
     }
 
@@ -757,6 +772,10 @@ public class V2RoomRuntimeService {
             ))
             .toList();
 
+        RuntimeSong currentSong = room.round > 0 && room.round <= room.songs.size()
+            ? room.songs.get(room.round - 1)
+            : null;
+
         return new V2RoomSnapshot(
             room.roomName,
             room.hostNickname,
@@ -770,6 +789,9 @@ public class V2RoomRuntimeService {
             room.hintRevealAt == null ? null : room.hintRevealAt.toString(),
             room.lastEvent,
             room.currentReveal,
+            currentSong == null ? null : currentSong.audioSourceType(),
+            currentSong == null ? null : currentSong.audioSourceValue(),
+            currentSong == null ? null : currentSong.audioSourceLabel(),
             participants
         );
     }
@@ -861,7 +883,10 @@ public class V2RoomRuntimeService {
         String title,
         String artist,
         String clue,
-        List<String> answers
+        List<String> answers,
+        String audioSourceType,
+        String audioSourceValue,
+        String audioSourceLabel
     ) {
     }
 

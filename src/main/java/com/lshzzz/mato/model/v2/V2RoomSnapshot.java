@@ -15,6 +15,9 @@ public record V2RoomSnapshot(
     String hintRevealAt,
     String lastEvent,
     String currentReveal,
+    String currentAudioSourceType,
+    String currentAudioSourceValue,
+    String currentAudioSourceLabel,
     List<V2RoomParticipant> participants
 ) {
 }

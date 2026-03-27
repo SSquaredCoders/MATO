@@ -4,173 +4,115 @@ import com.lshzzz.mato.model.v2.V2CreateMapRequest;
 import com.lshzzz.mato.model.v2.V2MapDetail;
 import com.lshzzz.mato.model.v2.V2MapSongDefinition;
 import com.lshzzz.mato.model.v2.V2MapSummary;
-import java.util.Comparator;
+import com.lshzzz.mato.model.v2.persistence.V2MapEntity;
+import com.lshzzz.mato.model.v2.persistence.V2MapSongEntity;
+import com.lshzzz.mato.repository.V2MapEntityRepository;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class V2MapCatalogService {
 
-    private static final int DEFAULT_HINT_REVEAL_DELAY_SECONDS = 8;
-
-    private final AtomicLong sequence = new AtomicLong(100L);
-    private final Map<Long, V2MapDetail> maps = new ConcurrentHashMap<>();
-
-    public V2MapCatalogService() {
-        seed(
-            "Anime Rush",
-            "애니 오프닝 위주로 빠르게 한 판 돌리는 기본 맵입니다.",
-            "system",
-            "normal",
-            "public",
-            30,
-            DEFAULT_HINT_REVEAL_DELAY_SECONDS,
-            List.of(
-                new V2MapSongDefinition(
-                    "문제: 일본 애니메이션 에반게리온 오프닝입니다. 곡 제목을 입력하세요.",
-                    "A Cruel Angel's Thesis",
-                    "Yoko Takahashi",
-                    List.of("a cruel angel's thesis", "zankoku na tenshi no thesis")
-                ),
-                new V2MapSongDefinition(
-                    "문제: 귀멸의 칼날 1기 오프닝입니다.",
-                    "Gurenge",
-                    "LiSA",
-                    List.of("gurenge")
-                ),
-                new V2MapSongDefinition(
-                    "문제: 강철의 연금술사 브라더후드 1기 오프닝입니다.",
-                    "Again",
-                    "YUI",
-                    List.of("again")
-                ),
-                new V2MapSongDefinition(
-                    "문제: 나루토 질풍전 16기 오프닝입니다.",
-                    "Silhouette",
-                    "KANA-BOON",
-                    List.of("silhouette")
-                )
-            )
-        );
-
-        seed(
-            "Boss Battle",
-            "조금 더 빡센 난이도의 보컬 곡 위주 테스트 맵입니다.",
-            "system",
-            "hard",
-            "public",
-            25,
-            DEFAULT_HINT_REVEAL_DELAY_SECONDS,
-            List.of(
-                new V2MapSongDefinition(
-                    "문제: 코드 기어스 1기 오프닝입니다.",
-                    "COLORS",
-                    "FLOW",
-                    List.of("colors")
-                ),
-                new V2MapSongDefinition(
-                    "문제: 나루토 2기 오프닝입니다.",
-                    "Haruka Kanata",
-                    "ASIAN KUNG-FU GENERATION",
-                    List.of("haruka kanata")
-                ),
-                new V2MapSongDefinition(
-                    "문제: 소드 아트 온라인 1기 오프닝입니다.",
-                    "crossing field",
-                    "LiSA",
-                    List.of("crossing field")
-                )
-            )
-        );
-    }
+    private final V2MapEntityRepository mapRepository;
 
     public List<V2MapSummary> getMaps(String viewer) {
-        return maps.values().stream()
-            .filter(map -> isVisibleToViewer(map, viewer))
-            .sorted(Comparator.comparing(V2MapDetail::id))
+        String normalizedViewer = normalizeViewer(viewer);
+        if (normalizedViewer == null) {
+            return List.of();
+        }
+
+        return mapRepository.findByCreatedByOrderByIdAsc(normalizedViewer).stream()
             .map(this::toSummary)
             .toList();
     }
 
     public V2MapDetail getMap(long mapId, String viewer) {
-        V2MapDetail map = maps.get(mapId);
-        if (map == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "맵을 찾을 수 없습니다.");
-        }
-        if (!isVisibleToViewer(map, viewer)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "맵을 찾을 수 없습니다.");
-        }
-        return map;
+        return toDetail(getRequiredMap(mapId, viewer));
     }
 
+    @Transactional
     public V2MapDetail createMap(V2CreateMapRequest request) {
-        long mapId = sequence.incrementAndGet();
-        V2MapDetail map = new V2MapDetail(
-            mapId,
+        V2MapEntity map = V2MapEntity.create(
             sanitize(request.name()),
             Objects.requireNonNullElse(request.description(), "").trim(),
             sanitize(request.createdBy()),
             normalizeDifficulty(request.difficulty()),
             normalizeVisibility(request.visibility()),
-            sanitizeNonNegative(request.roundTimeLimitSeconds(), "라운드 제한시간"),
-            sanitizeNonNegative(request.hintRevealDelaySeconds(), "힌트 공개 지연시간"),
+            sanitizeNonNegative(request.roundTimeLimitSeconds(), "round time limit"),
+            sanitizeNonNegative(request.hintRevealDelaySeconds(), "hint reveal delay"),
             sanitizeSongs(request.songs())
         );
-        maps.put(map.id(), map);
-        return map;
+        return toDetail(mapRepository.save(map));
     }
 
     public V2MapSummary getSummary(long mapId, String viewer) {
-        return toSummary(getMap(mapId, viewer));
+        return toSummary(getRequiredMap(mapId, viewer));
     }
 
-    private void seed(
-        String name,
-        String description,
-        String createdBy,
-        String difficulty,
-        String visibility,
-        int roundTimeLimitSeconds,
-        int hintRevealDelaySeconds,
-        List<V2MapSongDefinition> songs
-    ) {
-        long mapId = sequence.getAndIncrement();
-        maps.put(
-            mapId,
-            new V2MapDetail(
-                mapId,
-                name,
-                description,
-                createdBy,
-                difficulty,
-                visibility,
-                roundTimeLimitSeconds,
-                hintRevealDelaySeconds,
-                songs
-            )
+    @Transactional
+    void resetForTests() {
+        mapRepository.deleteAll();
+    }
+
+    private V2MapEntity getRequiredMap(long mapId, String viewer) {
+        String normalizedViewer = normalizeViewer(viewer);
+        if (normalizedViewer == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Map not found.");
+        }
+
+        return mapRepository.findByIdAndCreatedBy(mapId, normalizedViewer)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Map not found."));
+    }
+
+    private V2MapSummary toSummary(V2MapEntity map) {
+        return new V2MapSummary(
+            map.getId(),
+            map.getName(),
+            map.getSongs().size(),
+            map.getDifficulty(),
+            map.getVisibility()
         );
     }
 
-    private V2MapSummary toSummary(V2MapDetail map) {
-        return new V2MapSummary(
-            map.id(),
-            map.name(),
-            map.songs().size(),
-            map.difficulty(),
-            map.visibility()
+    private V2MapDetail toDetail(V2MapEntity map) {
+        return new V2MapDetail(
+            map.getId(),
+            map.getName(),
+            map.getDescription(),
+            map.getCreatedBy(),
+            map.getDifficulty(),
+            map.getVisibility(),
+            map.getRoundTimeLimitSeconds(),
+            map.getHintRevealDelaySeconds(),
+            map.getSongs().stream()
+                .map(this::toSongDefinition)
+                .toList()
+        );
+    }
+
+    private V2MapSongDefinition toSongDefinition(V2MapSongEntity song) {
+        return new V2MapSongDefinition(
+            song.getClue(),
+            song.getTitle(),
+            song.getArtist(),
+            List.copyOf(song.getAnswers()),
+            song.getAudioSourceType(),
+            song.getAudioSourceValue(),
+            song.getAudioSourceLabel()
         );
     }
 
     private String sanitize(String value) {
         String candidate = Objects.requireNonNullElse(value, "").trim();
         if (candidate.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비어 있는 값은 허용되지 않습니다.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Blank values are not allowed.");
         }
         return candidate;
     }
@@ -179,7 +121,7 @@ public class V2MapCatalogService {
         String candidate = sanitize(value).toLowerCase();
         return switch (candidate) {
             case "easy", "normal", "hard" -> candidate;
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "난이도 값이 올바르지 않습니다.");
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported difficulty.");
         };
     }
 
@@ -187,23 +129,23 @@ public class V2MapCatalogService {
         String candidate = sanitize(value).toLowerCase();
         return switch (candidate) {
             case "public", "private" -> candidate;
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "공개 범위 값이 올바르지 않습니다.");
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported visibility.");
         };
     }
 
-    private boolean isVisibleToViewer(V2MapDetail map, String viewer) {
+    private String normalizeViewer(String viewer) {
         String normalizedViewer = Objects.requireNonNullElse(viewer, "").trim();
         if (normalizedViewer.isBlank()) {
-            return false;
+            return null;
         }
-        return normalizedViewer.equals(map.createdBy());
+        return normalizedViewer;
     }
 
     private int sanitizeNonNegative(Integer value, String fieldName) {
         if (value == null || value < 0) {
             throw new ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
-                fieldName + "은(는) 0 이상이어야 합니다."
+                fieldName + " must be zero or greater."
             );
         }
         return value;
@@ -216,7 +158,7 @@ public class V2MapCatalogService {
                 sanitize(song.clue()),
                 sanitize(song.title()),
                 sanitize(song.artist()),
-                song.answers().stream()
+                (song.answers() == null ? List.<String>of() : song.answers()).stream()
                     .map(this::sanitize)
                     .toList(),
                 normalizeAudioSourceType(song.audioSourceType()),
@@ -226,7 +168,7 @@ public class V2MapCatalogService {
             .toList();
 
         if (sanitized.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "맵에는 최소 한 곡 이상이 필요합니다.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one song is required.");
         }
 
         return sanitized;
@@ -240,7 +182,7 @@ public class V2MapCatalogService {
         String normalized = candidate.toLowerCase();
         return switch (normalized) {
             case "youtube", "file" -> normalized;
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "오디오 소스 종류가 올바르지 않습니다.");
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported audio source type.");
         };
     }
 

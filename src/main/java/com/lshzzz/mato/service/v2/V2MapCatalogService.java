@@ -82,6 +82,11 @@ public class V2MapCatalogService {
     }
 
     @Transactional
+    public void deleteMap(long mapId, String viewer) {
+        mapRepository.delete(getRequiredMap(mapId, viewer));
+    }
+
+    @Transactional
     void resetForTests() {
         mapRepository.deleteAll();
     }

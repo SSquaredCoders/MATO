@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,5 +48,11 @@ public class V2MapsController {
         @Valid @RequestBody V2CreateMapRequest request
     ) {
         return mapCatalogService.updateMap(mapId, request);
+    }
+
+    @DeleteMapping("/{mapId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteMap(@PathVariable long mapId, @RequestParam(required = false) String viewer) {
+        mapCatalogService.deleteMap(mapId, viewer);
     }
 }

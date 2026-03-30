@@ -169,4 +169,37 @@ class V2MapCatalogServiceTest {
             .isEqualTo("random");
     }
 
+    @Test
+    void deletesOwnedMaps() {
+        var created = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Delete Queue",
+                "map to remove",
+                "host-01",
+                "normal",
+                "public",
+                true,
+                "author-order",
+                "single-lock",
+                "advance-on-correct",
+                20,
+                4,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: remove me",
+                        "Delete Me",
+                        "Codex",
+                        List.of("delete me")
+                    )
+                )
+            )
+        );
+
+        mapCatalogService.deleteMap(created.id(), "host-01");
+
+        assertThat(mapCatalogService.getMaps("host-01"))
+            .extracting("id")
+            .doesNotContain(created.id());
+    }
+
 }

@@ -202,4 +202,37 @@ class V2MapCatalogServiceTest {
             .doesNotContain(created.id());
     }
 
+    @Test
+    void returnsPagedSongResultsForLargeMaps() {
+        var created = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Paged Queue",
+                "pageable songs",
+                "host-01",
+                "normal",
+                "public",
+                true,
+                "author-order",
+                "single-lock",
+                "advance-on-correct",
+                20,
+                4,
+                List.of(
+                    new V2MapSongDefinition("Hint: alpha", "Alpha", "Codex", List.of("alpha")),
+                    new V2MapSongDefinition("Hint: beta", "Beta", "Codex", List.of("beta")),
+                    new V2MapSongDefinition("Hint: gamma", "Gamma", "Codex", List.of("gamma"))
+                )
+            )
+        );
+
+        var page = mapCatalogService.getMapSongs(created.id(), "host-01", "a", 0, 2);
+
+        assertThat(page.totalElements()).isEqualTo(3);
+        assertThat(page.size()).isEqualTo(10);
+        assertThat(page.items()).hasSize(3);
+        assertThat(page.items())
+            .extracting("title")
+            .containsExactly("Alpha", "Beta", "Gamma");
+    }
+
 }

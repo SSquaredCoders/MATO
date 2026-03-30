@@ -9,6 +9,7 @@ public record V2MapDetail(
     String createdBy,
     String difficulty,
     String visibility,
+    int songCount,
     boolean showMediaControls,
     String songOrderMode,
     String answerMode,

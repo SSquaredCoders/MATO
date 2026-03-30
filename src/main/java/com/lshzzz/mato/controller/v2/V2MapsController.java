@@ -2,6 +2,7 @@ package com.lshzzz.mato.controller.v2;
 
 import com.lshzzz.mato.model.v2.V2CreateMapRequest;
 import com.lshzzz.mato.model.v2.V2MapDetail;
+import com.lshzzz.mato.model.v2.V2MapSongPage;
 import com.lshzzz.mato.model.v2.V2MapSummary;
 import com.lshzzz.mato.service.v2.V2MapCatalogService;
 import jakarta.validation.Valid;
@@ -32,8 +33,23 @@ public class V2MapsController {
     }
 
     @GetMapping("/{mapId}")
-    public V2MapDetail getMap(@PathVariable long mapId, @RequestParam(required = false) String viewer) {
-        return mapCatalogService.getMap(mapId, viewer);
+    public V2MapDetail getMap(
+        @PathVariable long mapId,
+        @RequestParam(required = false) String viewer,
+        @RequestParam(defaultValue = "true") boolean includeSongs
+    ) {
+        return mapCatalogService.getMap(mapId, viewer, includeSongs);
+    }
+
+    @GetMapping("/{mapId}/songs")
+    public V2MapSongPage getMapSongs(
+        @PathVariable long mapId,
+        @RequestParam(required = false) String viewer,
+        @RequestParam(required = false) String query,
+        @RequestParam(required = false) Integer page,
+        @RequestParam(required = false) Integer size
+    ) {
+        return mapCatalogService.getMapSongs(mapId, viewer, query, page, size);
     }
 
     @PostMapping

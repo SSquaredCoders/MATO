@@ -2,13 +2,18 @@ package com.lshzzz.mato.service.v2;
 
 import com.lshzzz.mato.model.v2.V2CreateMapRequest;
 import com.lshzzz.mato.model.v2.V2MapDetail;
+import com.lshzzz.mato.model.v2.V2MapSongPage;
 import com.lshzzz.mato.model.v2.V2MapSongDefinition;
+import com.lshzzz.mato.model.v2.V2MapSongSummary;
 import com.lshzzz.mato.model.v2.V2MapSummary;
 import com.lshzzz.mato.model.v2.persistence.V2MapEntity;
 import com.lshzzz.mato.model.v2.persistence.V2MapSongEntity;
 import com.lshzzz.mato.repository.V2MapEntityRepository;
+import com.lshzzz.mato.repository.V2MapSongEntityRepository;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class V2MapCatalogService {
 
     private final V2MapEntityRepository mapRepository;
+    private final V2MapSongEntityRepository mapSongRepository;
 
     public List<V2MapSummary> getMaps(String viewer) {
         String normalizedViewer = normalizeViewer(viewer);
@@ -34,7 +40,43 @@ public class V2MapCatalogService {
     }
 
     public V2MapDetail getMap(long mapId, String viewer) {
-        return toDetail(getRequiredMap(mapId, viewer));
+        return getMap(mapId, viewer, true);
+    }
+
+    public V2MapDetail getMap(long mapId, String viewer, boolean includeSongs) {
+        return toDetail(getRequiredMap(mapId, viewer), includeSongs);
+    }
+
+    public V2MapSongPage getMapSongs(long mapId, String viewer, String query, Integer page, Integer size) {
+        V2MapEntity map = getRequiredMap(mapId, viewer);
+        String normalizedQuery = normalizeOptionalQuery(query);
+        int normalizedPage = Math.max(0, Objects.requireNonNullElse(page, 0));
+        int normalizedSize = Math.min(100, Math.max(10, Objects.requireNonNullElse(size, 25)));
+        PageRequest pageRequest = PageRequest.of(normalizedPage, normalizedSize);
+
+        Page<V2MapSongEntity> songPage = normalizedQuery == null
+            ? mapSongRepository.findByMapIdAndMapCreatedByOrderBySongOrderAsc(
+                map.getId(),
+                map.getCreatedBy(),
+                pageRequest
+            )
+            : mapSongRepository.searchByMapIdAndCreator(
+                map.getId(),
+                map.getCreatedBy(),
+                normalizedQuery,
+                pageRequest
+            );
+
+        return new V2MapSongPage(
+            songPage.getNumber(),
+            songPage.getSize(),
+            songPage.getTotalElements(),
+            songPage.getTotalPages(),
+            normalizedQuery,
+            songPage.getContent().stream()
+                .map(this::toSongSummary)
+                .toList()
+        );
     }
 
     @Transactional
@@ -54,7 +96,7 @@ public class V2MapCatalogService {
             sanitizeNonNegative(request.hintRevealDelaySeconds(), "hint reveal delay"),
             songs
         );
-        return toDetail(mapRepository.save(map));
+        return toDetail(mapRepository.save(map), true);
     }
 
     @Transactional
@@ -74,7 +116,7 @@ public class V2MapCatalogService {
             sanitizeNonNegative(request.hintRevealDelaySeconds(), "hint reveal delay"),
             songs
         );
-        return toDetail(map);
+        return toDetail(map, true);
     }
 
     public V2MapSummary getSummary(long mapId, String viewer) {
@@ -111,7 +153,7 @@ public class V2MapCatalogService {
         );
     }
 
-    private V2MapDetail toDetail(V2MapEntity map) {
+    private V2MapDetail toDetail(V2MapEntity map, boolean includeSongs) {
         return new V2MapDetail(
             map.getId(),
             map.getName(),
@@ -119,15 +161,33 @@ public class V2MapCatalogService {
             map.getCreatedBy(),
             map.getDifficulty(),
             map.getVisibility(),
+            map.getSongs().size(),
             Boolean.TRUE.equals(map.getShowMediaControls()),
             coalesceSongOrderMode(map.getSongOrderMode()),
             coalesceAnswerMode(map.getAnswerMode()),
             coalesceRoundFlowMode(map.getRoundFlowMode()),
             map.getRoundTimeLimitSeconds(),
             map.getHintRevealDelaySeconds(),
-            map.getSongs().stream()
-                .map(this::toSongDefinition)
-                .toList()
+            includeSongs
+                ? map.getSongs().stream()
+                    .map(this::toSongDefinition)
+                    .toList()
+                : List.of()
+        );
+    }
+
+    private V2MapSongSummary toSongSummary(V2MapSongEntity song) {
+        return new V2MapSongSummary(
+            song.getId(),
+            song.getSongOrder(),
+            song.getClue(),
+            song.getTitle(),
+            song.getArtist(),
+            song.getAudioSourceType(),
+            song.getAudioSourceLabel(),
+            Objects.requireNonNullElse(song.getClipStartSeconds(), 0),
+            song.getClipEndSeconds(),
+            song.getAnswers().size()
         );
     }
 
@@ -175,6 +235,11 @@ public class V2MapCatalogService {
             return null;
         }
         return normalizedViewer;
+    }
+
+    private String normalizeOptionalQuery(String query) {
+        String normalizedQuery = Objects.requireNonNullElse(query, "").trim();
+        return normalizedQuery.isBlank() ? null : normalizedQuery;
     }
 
     private int sanitizeNonNegative(Integer value, String fieldName) {

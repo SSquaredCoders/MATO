@@ -10,6 +10,7 @@ public record V2MapDetail(
     String difficulty,
     String visibility,
     boolean showMediaControls,
+    String songOrderMode,
     String answerMode,
     String roundFlowMode,
     int roundTimeLimitSeconds,

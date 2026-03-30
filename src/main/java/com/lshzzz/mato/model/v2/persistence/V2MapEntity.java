@@ -46,6 +46,9 @@ public class V2MapEntity extends BaseEntity {
     private Boolean showMediaControls;
 
     @Column(length = 32)
+    private String songOrderMode;
+
+    @Column(length = 32)
     private String answerMode;
 
     @Column(length = 32)
@@ -68,6 +71,7 @@ public class V2MapEntity extends BaseEntity {
         String difficulty,
         String visibility,
         boolean showMediaControls,
+        String songOrderMode,
         String answerMode,
         String roundFlowMode,
         int roundTimeLimitSeconds,
@@ -79,6 +83,7 @@ public class V2MapEntity extends BaseEntity {
         this.difficulty = difficulty;
         this.visibility = visibility;
         this.showMediaControls = showMediaControls;
+        this.songOrderMode = songOrderMode;
         this.answerMode = answerMode;
         this.roundFlowMode = roundFlowMode;
         this.roundTimeLimitSeconds = roundTimeLimitSeconds;
@@ -92,6 +97,7 @@ public class V2MapEntity extends BaseEntity {
         String difficulty,
         String visibility,
         boolean showMediaControls,
+        String songOrderMode,
         String answerMode,
         String roundFlowMode,
         int roundTimeLimitSeconds,
@@ -105,6 +111,7 @@ public class V2MapEntity extends BaseEntity {
             difficulty,
             visibility,
             showMediaControls,
+            songOrderMode,
             answerMode,
             roundFlowMode,
             roundTimeLimitSeconds,
@@ -122,6 +129,7 @@ public class V2MapEntity extends BaseEntity {
         String difficulty,
         String visibility,
         boolean showMediaControls,
+        String songOrderMode,
         String answerMode,
         String roundFlowMode,
         int roundTimeLimitSeconds,
@@ -133,6 +141,7 @@ public class V2MapEntity extends BaseEntity {
         this.difficulty = difficulty;
         this.visibility = visibility;
         this.showMediaControls = showMediaControls;
+        this.songOrderMode = songOrderMode;
         this.answerMode = answerMode;
         this.roundFlowMode = roundFlowMode;
         this.roundTimeLimitSeconds = roundTimeLimitSeconds;

@@ -6,7 +6,11 @@ import com.lshzzz.mato.model.v2.V2CreateMapRequest;
 import com.lshzzz.mato.model.v2.V2CreateRoomRequest;
 import com.lshzzz.mato.model.v2.V2GamePhase;
 import com.lshzzz.mato.model.v2.V2MapSongDefinition;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -135,6 +139,7 @@ class V2RoomRuntimeServiceTest {
                 "hard",
                 "public",
                 false,
+                "author-order",
                 "single-lock",
                 "advance-on-correct",
                 25,
@@ -181,6 +186,7 @@ class V2RoomRuntimeServiceTest {
                 "normal",
                 "public",
                 false,
+                "author-order",
                 "multi-score",
                 "timer-or-skip",
                 18,
@@ -248,6 +254,7 @@ class V2RoomRuntimeServiceTest {
                 "normal",
                 "public",
                 true,
+                "author-order",
                 "single-lock",
                 "timer-or-skip",
                 5,
@@ -285,5 +292,67 @@ class V2RoomRuntimeServiceTest {
             java.time.Instant.parse(started.snapshot().roundEndsAt())
         ).getSeconds();
         assertThat(secondsUntilEnd).isBetween(7L, 9L);
+    }
+
+    @Test
+    void randomSongOrderModeShufflesTheStartingRound() {
+        var createdMap = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Shuffle Queue",
+                "randomized order map",
+                "host-01",
+                "normal",
+                "public",
+                true,
+                "random",
+                "single-lock",
+                "advance-on-correct",
+                20,
+                0,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: alpha",
+                        "Alpha",
+                        "Codex",
+                        List.of("alpha")
+                    ),
+                    new V2MapSongDefinition(
+                        "Hint: beta",
+                        "Beta",
+                        "Codex",
+                        List.of("beta")
+                    ),
+                    new V2MapSongDefinition(
+                        "Hint: gamma",
+                        "Gamma",
+                        "Codex",
+                        List.of("gamma")
+                    )
+                )
+            )
+        );
+
+        roomRuntimeService.createRoom(
+            new V2CreateRoomRequest("shuffle-room", "host-01", createdMap.id())
+        );
+        roomRuntimeService.joinRoom("session-host", "shuffle-room", "host-01");
+        roomRuntimeService.joinRoom("session-guest", "shuffle-room", "guest-01");
+        roomRuntimeService.setReady("shuffle-room", "host-01", true);
+        roomRuntimeService.setReady("shuffle-room", "guest-01", true);
+
+        var started = roomRuntimeService.startGame("shuffle-room", "host-01");
+
+        List<String> expectedHints = new ArrayList<>(List.of(
+            "Hint: alpha",
+            "Hint: beta",
+            "Hint: gamma"
+        ));
+        Collections.shuffle(expectedHints, new Random(Objects.hash("shuffle-room", 0)));
+        if (expectedHints.equals(List.of("Hint: alpha", "Hint: beta", "Hint: gamma"))) {
+            Collections.rotate(expectedHints, 1);
+        }
+
+        assertThat(started.snapshot()).isNotNull();
+        assertThat(started.snapshot().currentHint()).isEqualTo(expectedHints.get(0));
     }
 }

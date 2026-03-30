@@ -47,6 +47,7 @@ public class V2MapCatalogService {
             normalizeDifficulty(request.difficulty()),
             normalizeVisibility(request.visibility()),
             request.showMediaControls(),
+            normalizeSongOrderMode(request.songOrderMode()),
             normalizeAnswerMode(request.answerMode()),
             normalizeRoundFlowMode(request.roundFlowMode(), request.answerMode()),
             sanitizeNonNegative(request.roundTimeLimitSeconds(), "round time limit"),
@@ -66,6 +67,7 @@ public class V2MapCatalogService {
             normalizeDifficulty(request.difficulty()),
             normalizeVisibility(request.visibility()),
             request.showMediaControls(),
+            normalizeSongOrderMode(request.songOrderMode()),
             normalizeAnswerMode(request.answerMode()),
             normalizeRoundFlowMode(request.roundFlowMode(), request.answerMode()),
             sanitizeNonNegative(request.roundTimeLimitSeconds(), "round time limit"),
@@ -113,6 +115,7 @@ public class V2MapCatalogService {
             map.getDifficulty(),
             map.getVisibility(),
             Boolean.TRUE.equals(map.getShowMediaControls()),
+            coalesceSongOrderMode(map.getSongOrderMode()),
             coalesceAnswerMode(map.getAnswerMode()),
             coalesceRoundFlowMode(map.getRoundFlowMode()),
             map.getRoundTimeLimitSeconds(),
@@ -224,6 +227,14 @@ public class V2MapCatalogService {
         };
     }
 
+    private String normalizeSongOrderMode(String value) {
+        String candidate = sanitize(value).toLowerCase();
+        return switch (candidate) {
+            case "author-order", "random" -> candidate;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported song order mode.");
+        };
+    }
+
     private String normalizeRoundFlowMode(String value, String answerMode) {
         String candidate = sanitize(value).toLowerCase();
         String normalizedAnswerMode = normalizeAnswerMode(answerMode);
@@ -267,6 +278,10 @@ public class V2MapCatalogService {
 
     private String coalesceAnswerMode(String value) {
         return value == null || value.isBlank() ? "single-lock" : value;
+    }
+
+    private String coalesceSongOrderMode(String value) {
+        return value == null || value.isBlank() ? "author-order" : value;
     }
 
     private String coalesceRoundFlowMode(String value) {

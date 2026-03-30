@@ -12,11 +12,13 @@ import com.lshzzz.mato.model.v2.V2RoomSnapshot;
 import com.lshzzz.mato.model.v2.V2RoomSummary;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.http.HttpStatus;
@@ -28,6 +30,7 @@ public class V2RoomRuntimeService {
 
     private static final String DEMO_ROOM_NAME = "demo-room";
     private static final String DEMO_HOST_NICKNAME = "host-01";
+    private static final String DEFAULT_SONG_ORDER_MODE = "author-order";
     private static final String DEFAULT_ANSWER_MODE = "single-lock";
     private static final String DEFAULT_ROUND_FLOW_MODE = "advance-on-correct";
     private static final String LOBBY_PROMPT = "준비를 마치고 방장이 게임을 시작할 때까지 기다리세요.";
@@ -294,6 +297,7 @@ public class V2RoomRuntimeService {
             }
 
             connectedParticipants.forEach(participant -> participant.score = 0);
+            prepareSongsForGameStart(room);
             room.phase = V2GamePhase.PLAYING;
             room.round = 1;
             room.currentReveal = null;
@@ -605,12 +609,13 @@ public class V2RoomRuntimeService {
         room.roundEndsAt = null;
         room.currentReveal = null;
         room.showMediaControls = true;
+        room.songOrderMode = DEFAULT_SONG_ORDER_MODE;
         room.answerMode = DEFAULT_ANSWER_MODE;
         room.roundFlowMode = DEFAULT_ROUND_FLOW_MODE;
         room.lastEvent = "로비 대기 중";
         room.map = DEMO_MAP;
         room.participants.add(new RuntimeParticipant(hostNickname, false, false));
-        room.songs.addAll(List.of(
+        room.authoredSongs.addAll(List.of(
             new RuntimeSong(
                 "A Cruel Angel's Thesis",
                 "Yoko Takahashi",
@@ -656,6 +661,7 @@ public class V2RoomRuntimeService {
                 null
             )
         ));
+        room.songs.addAll(room.authoredSongs);
         return room;
     }
 
@@ -676,15 +682,33 @@ public class V2RoomRuntimeService {
         room.hintRevealDelaySeconds = mapDetail.hintRevealDelaySeconds();
         room.currentReveal = null;
         room.showMediaControls = mapDetail.showMediaControls();
+        room.songOrderMode = mapDetail.songOrderMode();
         room.answerMode = mapDetail.answerMode();
         room.roundFlowMode = mapDetail.roundFlowMode();
         room.roundScorers.clear();
-        room.songs.clear();
-        room.songs.addAll(
+        room.authoredSongs.clear();
+        room.authoredSongs.addAll(
             mapDetail.songs().stream()
                 .map(this::toRuntimeSong)
                 .toList()
         );
+        room.songs.clear();
+        room.songs.addAll(room.authoredSongs);
+    }
+
+    private void prepareSongsForGameStart(RuntimeRoom room) {
+        List<RuntimeSong> nextSongs = new ArrayList<>(room.authoredSongs);
+
+        if ("random".equals(room.songOrderMode) && nextSongs.size() > 1) {
+            Collections.shuffle(nextSongs, new Random(Objects.hash(room.roomName, room.gameStartCount)));
+            if (nextSongs.equals(room.authoredSongs)) {
+                Collections.rotate(nextSongs, 1);
+            }
+        }
+
+        room.gameStartCount += 1;
+        room.songs.clear();
+        room.songs.addAll(nextSongs);
     }
 
     private void startRound(RuntimeRoom room) {
@@ -1040,13 +1064,16 @@ public class V2RoomRuntimeService {
         private int roundTimeLimitSeconds;
         private String currentReveal;
         private boolean showMediaControls;
+        private String songOrderMode;
         private String answerMode;
         private String roundFlowMode;
         private String lastEvent;
         private V2MapSummary map;
         private final List<RuntimeParticipant> participants = new ArrayList<>();
+        private final List<RuntimeSong> authoredSongs = new ArrayList<>();
         private final List<RuntimeSong> songs = new ArrayList<>();
         private final Set<String> roundScorers = new HashSet<>();
+        private int gameStartCount;
     }
 
     private static final class RuntimeParticipant {

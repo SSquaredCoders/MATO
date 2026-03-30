@@ -41,6 +41,7 @@ class V2MapCatalogServiceTest {
                 "normal",
                 "public",
                 false,
+                "author-order",
                 "single-lock",
                 "advance-on-correct",
                 35,
@@ -75,6 +76,7 @@ class V2MapCatalogServiceTest {
                 "normal",
                 "private",
                 false,
+                "author-order",
                 "single-lock",
                 "advance-on-correct",
                 25,
@@ -110,6 +112,7 @@ class V2MapCatalogServiceTest {
                 "normal",
                 "public",
                 false,
+                "author-order",
                 "single-lock",
                 "advance-on-correct",
                 25,
@@ -128,6 +131,42 @@ class V2MapCatalogServiceTest {
         assertThat(mapCatalogService.getMaps("host-01"))
             .extracting("name")
             .containsExactly("My Queue");
+    }
+
+    @Test
+    void storesSongOrderModeOnMapDetails() {
+        var created = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Shuffle Queue",
+                "randomized order map",
+                "host-01",
+                "normal",
+                "public",
+                true,
+                "random",
+                "single-lock",
+                "advance-on-correct",
+                20,
+                5,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: alpha",
+                        "Alpha",
+                        "Codex",
+                        List.of("alpha")
+                    ),
+                    new V2MapSongDefinition(
+                        "Hint: beta",
+                        "Beta",
+                        "Codex",
+                        List.of("beta")
+                    )
+                )
+            )
+        );
+
+        assertThat(mapCatalogService.getMap(created.id(), "host-01").songOrderMode())
+            .isEqualTo("random");
     }
 
 }

@@ -13,6 +13,7 @@ public record V2CreateMapRequest(
     @NotBlank String difficulty,
     @NotBlank String visibility,
     @NotNull Boolean showMediaControls,
+    @NotBlank String songOrderMode,
     @NotBlank String answerMode,
     @NotBlank String roundFlowMode,
     @NotNull Integer roundTimeLimitSeconds,

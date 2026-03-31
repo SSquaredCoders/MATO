@@ -303,6 +303,68 @@ class V2RoomRuntimeServiceTest {
     }
 
     @Test
+    void letsTheHostOverrideSkipSettingsInTheLobby() {
+        var createdMap = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Room Settings",
+                "host override map",
+                "host-01",
+                "normal",
+                "public",
+                true,
+                "author-order",
+                "single-lock",
+                "advance-on-correct",
+                25,
+                3,
+                0,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: first song",
+                        "First Song",
+                        "Codex",
+                        List.of("first song")
+                    )
+                )
+            )
+        );
+
+        roomRuntimeService.createRoom(
+            new V2CreateRoomRequest("settings-room", "host-01", createdMap.id())
+        );
+        roomRuntimeService.joinRoom("session-host", "settings-room", "host-01");
+
+        var updated = roomRuntimeService.updateRoomSettings(
+            "settings-room",
+            "host-01",
+            "timer-or-skip",
+            4
+        );
+
+        assertThat(updated.snapshot()).isNotNull();
+        assertThat(updated.snapshot().roundFlowMode()).isEqualTo("timer-or-skip");
+        assertThat(updated.snapshot().configuredSkipVotesRequired()).isEqualTo(4);
+        assertThat(updated.snapshot().skipVotesRequired()).isEqualTo(1);
+    }
+
+    @Test
+    void blocksNonHostsFromUpdatingRoomSettings() {
+        roomRuntimeService.createRoom(new V2CreateRoomRequest("settings-room", "host-01", null));
+        roomRuntimeService.joinRoom("session-host", "settings-room", "host-01");
+        roomRuntimeService.joinRoom("session-guest", "settings-room", "guest-01");
+
+        var rejected = roomRuntimeService.updateRoomSettings(
+            "settings-room",
+            "guest-01",
+            "timer-or-skip",
+            2
+        );
+
+        assertThat(rejected.type()).isEqualTo("error");
+        assertThat(rejected.snapshot()).isNotNull();
+    }
+
+    @Test
     void extendsRoundTimeWhenClipLengthExceedsDefault() {
         var createdMap = mapCatalogService.createMap(
             new V2CreateMapRequest(

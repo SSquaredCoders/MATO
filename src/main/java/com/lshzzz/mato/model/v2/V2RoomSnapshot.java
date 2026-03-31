@@ -13,6 +13,7 @@ public record V2RoomSnapshot(
     String answerMode,
     String roundFlowMode,
     int skipVotesRequired,
+    int configuredSkipVotesRequired,
     int currentSkipVotes,
     List<String> skipVoterNicknames,
     String currentPrompt,

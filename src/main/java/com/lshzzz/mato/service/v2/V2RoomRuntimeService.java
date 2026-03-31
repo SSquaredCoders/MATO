@@ -122,6 +122,12 @@ public class V2RoomRuntimeService {
                 extractNickname(payload),
                 extractBoolean(payload, "ready")
             );
+            case "room.settings.update" -> updateRoomSettings(
+                roomName,
+                extractNickname(payload),
+                extractString(payload, "roundFlowMode"),
+                extractInteger(payload, "skipVotesRequired")
+            );
             case "game.start" -> startGame(roomName, extractNickname(payload));
             case "game.answer.submit" -> submitAnswer(
                 roomName,
@@ -284,6 +290,42 @@ public class V2RoomRuntimeService {
             room.lastEvent = participant.nickname
                 + (ready ? "님이 준비를 완료했습니다." : "님이 준비를 해제했습니다.");
             return successEvent("room.participant.changed", room, room.lastEvent, participant.nickname, true);
+        }
+    }
+
+    public EventResult updateRoomSettings(
+        String roomName,
+        String nickname,
+        String roundFlowMode,
+        Integer skipVotesRequired
+    ) {
+        synchronized (monitor) {
+            RuntimeRoom room = getRequiredRoom(roomName);
+            String safeNickname = sanitizeNickname(nickname, null);
+
+            if (!room.hostNickname.equals(safeNickname)) {
+                return errorEvent(roomName, "방장만 방 설정을 바꿀 수 있습니다.");
+            }
+
+            if (room.phase != V2GamePhase.LOBBY) {
+                return errorEvent(roomName, "방 설정은 대기 상태에서만 바꿀 수 있습니다.");
+            }
+
+            String nextRoundFlowMode = Objects.requireNonNullElse(roundFlowMode, room.roundFlowMode);
+            if (!DEFAULT_ROUND_FLOW_MODE.equals(nextRoundFlowMode) && !usesTimerOrSkipFlow(nextRoundFlowMode)) {
+                return errorEvent(roomName, "지원하지 않는 진행 방식입니다.");
+            }
+
+            int nextSkipVotesRequired = skipVotesRequired == null
+                ? room.configuredSkipVotesRequired
+                : Math.max(1, skipVotesRequired);
+
+            room.roundFlowMode = nextRoundFlowMode;
+            room.configuredSkipVotesRequired = nextSkipVotesRequired;
+            room.skipVoters.clear();
+            room.lastEvent = "방 설정이 업데이트되었습니다.";
+
+            return successEvent("room.snapshot", room, room.lastEvent, safeNickname, true);
         }
     }
 
@@ -624,7 +666,11 @@ public class V2RoomRuntimeService {
     }
 
     private boolean usesTimerOrSkipFlow(RuntimeRoom room) {
-        return "timer-or-skip".equals(room.roundFlowMode);
+        return usesTimerOrSkipFlow(room.roundFlowMode);
+    }
+
+    private boolean usesTimerOrSkipFlow(String roundFlowMode) {
+        return "timer-or-skip".equals(roundFlowMode);
     }
 
     private EventResult successEvent(
@@ -1061,6 +1107,7 @@ public class V2RoomRuntimeService {
             room.answerMode,
             room.roundFlowMode,
             resolveRequiredSkipVotes(room),
+            Math.max(1, room.configuredSkipVotesRequired),
             room.skipVoters.size(),
             room.skipVoters.stream().sorted().toList(),
             room.currentPrompt,
@@ -1112,6 +1159,27 @@ public class V2RoomRuntimeService {
             return booleanValue;
         }
         return Boolean.parseBoolean(String.valueOf(rawValue));
+    }
+
+    private Integer extractInteger(Map<String, Object> payload, String key) {
+        Object rawValue = payload.get(key);
+        if (rawValue == null) {
+            return null;
+        }
+        if (rawValue instanceof Number numberValue) {
+            return numberValue.intValue();
+        }
+
+        String candidate = String.valueOf(rawValue).trim();
+        if (candidate.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Integer.parseInt(candidate);
+        } catch (NumberFormatException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "숫자 설정값이 올바르지 않습니다.");
+        }
     }
 
     private String normalize(String value) {

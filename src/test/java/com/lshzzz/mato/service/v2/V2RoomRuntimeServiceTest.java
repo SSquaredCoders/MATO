@@ -80,6 +80,58 @@ class V2RoomRuntimeServiceTest {
     }
 
     @Test
+    void acceptsMultipleAliasesAndIgnoresWhitespaceInAnswers() {
+        var createdMap = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Alias Queue",
+                "multiple answer aliases",
+                "host-01",
+                "normal",
+                "public",
+                true,
+                "author-order",
+                "single-lock",
+                "advance-on-correct",
+                20,
+                0,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: first song",
+                        "Never Gonna Give You Up",
+                        "Rick Astley",
+                        List.of("never gonna give you up", "rickroll")
+                    ),
+                    new V2MapSongDefinition(
+                        "Hint: second song",
+                        "Second Song",
+                        "Codex",
+                        List.of("second song")
+                    )
+                )
+            )
+        );
+
+        roomRuntimeService.createRoom(
+            new V2CreateRoomRequest("alias-room", "host-01", createdMap.id())
+        );
+        roomRuntimeService.joinRoom("session-host", "alias-room", "host-01");
+        roomRuntimeService.joinRoom("session-guest", "alias-room", "guest-01");
+        roomRuntimeService.setReady("alias-room", "host-01", true);
+        roomRuntimeService.setReady("alias-room", "guest-01", true);
+        roomRuntimeService.startGame("alias-room", "host-01");
+
+        var answered = roomRuntimeService.submitAnswer(
+            "alias-room",
+            "guest-01",
+            "nevergonnagiveyouup"
+        );
+
+        assertThat(answered.type()).isEqualTo("game.answer.accepted");
+        assertThat(answered.snapshot()).isNotNull();
+        assertThat(answered.snapshot().round()).isEqualTo(2);
+    }
+
+    @Test
     void removesGhostParticipantsFromDemoRoomSnapshot() {
         var initialSnapshot = roomRuntimeService.getRoomSnapshot("demo-room");
 

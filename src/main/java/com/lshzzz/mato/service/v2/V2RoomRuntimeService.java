@@ -423,9 +423,11 @@ public class V2RoomRuntimeService {
             }
 
             RuntimeSong currentSong = room.songs.get(room.round - 1);
+            String normalizedAnswer = normalize(safeAnswer);
             boolean correct = currentSong.answers.stream()
                 .map(this::normalize)
-                .anyMatch(candidate -> normalize(safeAnswer).contains(candidate));
+                .filter(candidate -> !candidate.isBlank())
+                .anyMatch(candidate -> candidate.equals(normalizedAnswer));
             V2RoomChatMessage chatMessage = buildChatMessage(
                 room.roomName,
                 participant.nickname,
@@ -1214,7 +1216,10 @@ public class V2RoomRuntimeService {
     }
 
     private String normalize(String value) {
-        return Objects.requireNonNullElse(value, "").trim().toLowerCase();
+        return Objects.requireNonNullElse(value, "")
+            .toLowerCase()
+            .replaceAll("\\s+", "")
+            .trim();
     }
 
     public record EventResult(

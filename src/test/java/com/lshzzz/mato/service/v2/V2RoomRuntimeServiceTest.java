@@ -337,13 +337,23 @@ class V2RoomRuntimeServiceTest {
         var updated = roomRuntimeService.updateRoomSettings(
             "settings-room",
             "host-01",
+            false,
+            "random",
+            "multi-score",
             "timer-or-skip",
-            4
+            42,
+            4,
+            7
         );
 
         assertThat(updated.snapshot()).isNotNull();
+        assertThat(updated.snapshot().showMediaControls()).isFalse();
+        assertThat(updated.snapshot().songOrderMode()).isEqualTo("random");
+        assertThat(updated.snapshot().answerMode()).isEqualTo("multi-score");
         assertThat(updated.snapshot().roundFlowMode()).isEqualTo("timer-or-skip");
+        assertThat(updated.snapshot().roundTimeLimitSeconds()).isEqualTo(42);
         assertThat(updated.snapshot().configuredSkipVotesRequired()).isEqualTo(4);
+        assertThat(updated.snapshot().hintRevealDelaySeconds()).isEqualTo(7);
         assertThat(updated.snapshot().skipVotesRequired()).isEqualTo(1);
     }
 
@@ -356,8 +366,13 @@ class V2RoomRuntimeServiceTest {
         var rejected = roomRuntimeService.updateRoomSettings(
             "settings-room",
             "guest-01",
+            null,
+            null,
+            null,
             "timer-or-skip",
-            2
+            null,
+            2,
+            null
         );
 
         assertThat(rejected.type()).isEqualTo("error");

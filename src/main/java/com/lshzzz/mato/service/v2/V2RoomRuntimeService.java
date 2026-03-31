@@ -33,6 +33,7 @@ public class V2RoomRuntimeService {
     private static final String DEFAULT_SONG_ORDER_MODE = "author-order";
     private static final String DEFAULT_ANSWER_MODE = "single-lock";
     private static final String DEFAULT_ROUND_FLOW_MODE = "advance-on-correct";
+    private static final int DEFAULT_SKIP_VOTES_REQUIRED = 2;
     private static final String LOBBY_PROMPT = "준비를 마치고 방장이 게임을 시작할 때까지 기다리세요.";
     private static final String PLAYING_PROMPT = "노래를 듣고 제목을 맞혀보세요.";
     private static final int DEFAULT_HINT_REVEAL_DELAY_SECONDS = 8;
@@ -127,7 +128,7 @@ public class V2RoomRuntimeService {
                 extractNickname(payload),
                 extractString(payload, "answer")
             );
-            case "game.next.request" -> nextRound(roomName, extractNickname(payload));
+            case "game.next.request" -> requestSkipVote(roomName, extractNickname(payload));
             case "presence.ping" -> snapshotEvent(roomName, "현재 방 상태를 새로고침했습니다.");
             default -> errorEvent(roomName, "지원하지 않는 클라이언트 이벤트입니다.");
         };
@@ -156,12 +157,21 @@ public class V2RoomRuntimeService {
 
             participant.connected = false;
             participant.ready = false;
+            room.skipVoters.remove(participant.nickname);
             room.lastEvent = membership.nickname() + "님의 연결이 끊어졌습니다.";
             appendSystemMessage(room, room.lastEvent);
             reassignHostIfNeeded(room);
 
             if (activeParticipantCount(room) == 0) {
                 return clearOrRemoveIfEmpty(room, room.lastEvent);
+            }
+
+            EventResult skipAdvanceEvent = maybeAdvanceFromSkipVotesAfterRosterChange(
+                room,
+                membership.nickname()
+            );
+            if (skipAdvanceEvent != null) {
+                return skipAdvanceEvent;
             }
 
             return successEvent(
@@ -232,6 +242,7 @@ public class V2RoomRuntimeService {
             }
 
             unregisterMembership(sessionId, roomName, safeNickname);
+            room.skipVoters.remove(safeNickname);
 
             boolean removed = room.participants.removeIf(
                 participant -> participant.nickname.equals(safeNickname)
@@ -246,6 +257,14 @@ public class V2RoomRuntimeService {
 
             if (activeParticipantCount(room) == 0) {
                 return clearOrRemoveIfEmpty(room, room.lastEvent);
+            }
+
+            EventResult skipAdvanceEvent = maybeAdvanceFromSkipVotesAfterRosterChange(
+                room,
+                safeNickname
+            );
+            if (skipAdvanceEvent != null) {
+                return skipAdvanceEvent;
             }
 
             return successEvent("room.participant.changed", room, room.lastEvent, safeNickname, true);
@@ -441,7 +460,7 @@ public class V2RoomRuntimeService {
         }
     }
 
-    public EventResult nextRound(String roomName, String nickname) {
+    public EventResult requestSkipVote(String roomName, String nickname) {
         synchronized (monitor) {
             RuntimeRoom room = getRequiredRoom(roomName);
             EventResult expiredEvent = advanceIfRoundExpired(room);
@@ -450,22 +469,43 @@ public class V2RoomRuntimeService {
             }
             RuntimeParticipant participant = getRequiredConnectedParticipant(room, nickname);
 
-            if (!room.hostNickname.equals(participant.nickname)) {
-                return errorEvent(roomName, "방장만 다음 곡으로 넘길 수 있습니다.");
-            }
-
             if (room.phase != V2GamePhase.PLAYING) {
                 return errorEvent(roomName, "게임 진행 중일 때만 스킵할 수 있습니다.");
             }
 
+            if (!usesTimerOrSkipFlow(room)) {
+                return errorEvent(roomName, "현재 맵 규칙에서는 스킵 투표를 사용할 수 없습니다.");
+            }
+
+            if (room.skipVoters.contains(participant.nickname)) {
+                room.skipVoters.remove(participant.nickname);
+                room.lastEvent = participant.nickname + "님이 스킵 투표를 취소했습니다.";
+                return successEvent("room.snapshot", room, room.lastEvent, participant.nickname, true);
+            }
+
+            room.skipVoters.add(participant.nickname);
+            int currentSkipVotes = room.skipVoters.size();
+            int requiredSkipVotes = resolveRequiredSkipVotes(room);
             RuntimeSong currentSong = room.songs.get(room.round - 1);
-            room.currentReveal = currentSong.title + " - " + currentSong.artist;
-            return advanceResolvedRound(
+            room.lastEvent = participant.nickname + "님이 스킵에 투표했습니다.";
+
+            if (currentSkipVotes >= requiredSkipVotes) {
+                room.currentReveal = currentSong.title + " - " + currentSong.artist;
+                return advanceResolvedRound(
+                    room,
+                    participant.nickname,
+                    currentSkipVotes + "명이 스킵에 동의해 다음 곡으로 넘어갑니다.",
+                    "game.round.started",
+                    null
+                );
+            }
+
+            return successEvent(
+                "room.snapshot",
                 room,
+                "스킵 투표 " + currentSkipVotes + "/" + requiredSkipVotes,
                 participant.nickname,
-                participant.nickname + "님이 현재 곡을 스킵했습니다.",
-                "game.round.started",
-                null
+                true
             );
         }
     }
@@ -510,6 +550,7 @@ public class V2RoomRuntimeService {
         room.currentHint = null;
         room.hintRevealAt = null;
         room.roundEndsAt = null;
+        room.skipVoters.clear();
         RuntimeParticipant winner = getConnectedParticipants(room).stream()
             .max(Comparator.comparingInt(candidate -> candidate.score))
             .orElse(null);
@@ -547,6 +588,35 @@ public class V2RoomRuntimeService {
         List<RuntimeParticipant> connectedParticipants = getConnectedParticipants(room);
         return !connectedParticipants.isEmpty() && connectedParticipants.stream()
             .allMatch(participant -> room.roundScorers.contains(participant.nickname));
+    }
+
+    private int resolveRequiredSkipVotes(RuntimeRoom room) {
+        int configuredVotes = room.configuredSkipVotesRequired < 1
+            ? DEFAULT_SKIP_VOTES_REQUIRED
+            : room.configuredSkipVotesRequired;
+        int connectedParticipants = Math.max(1, activeParticipantCount(room));
+        return Math.min(configuredVotes, connectedParticipants);
+    }
+
+    private EventResult maybeAdvanceFromSkipVotesAfterRosterChange(RuntimeRoom room, String actorNickname) {
+        if (
+            room.phase != V2GamePhase.PLAYING ||
+            !usesTimerOrSkipFlow(room) ||
+            room.skipVoters.isEmpty() ||
+            room.skipVoters.size() < resolveRequiredSkipVotes(room)
+        ) {
+            return null;
+        }
+
+        RuntimeSong currentSong = room.songs.get(room.round - 1);
+        room.currentReveal = currentSong.title + " - " + currentSong.artist;
+        return advanceResolvedRound(
+            room,
+            actorNickname,
+            "참가자 수가 바뀌어 스킵 기준이 충족되어 다음 곡으로 넘어갑니다.",
+            "game.round.started",
+            null
+        );
     }
 
     private boolean isSingleLockMode(RuntimeRoom room) {
@@ -606,6 +676,7 @@ public class V2RoomRuntimeService {
         room.hintRevealAt = null;
         room.hintRevealDelaySeconds = DEFAULT_HINT_REVEAL_DELAY_SECONDS;
         room.roundTimeLimitSeconds = 30;
+        room.configuredSkipVotesRequired = DEFAULT_SKIP_VOTES_REQUIRED;
         room.roundEndsAt = null;
         room.currentReveal = null;
         room.showMediaControls = true;
@@ -679,6 +750,7 @@ public class V2RoomRuntimeService {
         room.hintRevealAt = null;
         room.roundEndsAt = null;
         room.roundTimeLimitSeconds = mapDetail.roundTimeLimitSeconds();
+        room.configuredSkipVotesRequired = mapDetail.skipVotesRequired();
         room.hintRevealDelaySeconds = mapDetail.hintRevealDelaySeconds();
         room.currentReveal = null;
         room.showMediaControls = mapDetail.showMediaControls();
@@ -686,6 +758,7 @@ public class V2RoomRuntimeService {
         room.answerMode = mapDetail.answerMode();
         room.roundFlowMode = mapDetail.roundFlowMode();
         room.roundScorers.clear();
+        room.skipVoters.clear();
         room.authoredSongs.clear();
         room.authoredSongs.addAll(
             mapDetail.songs().stream()
@@ -724,6 +797,7 @@ public class V2RoomRuntimeService {
             : null;
         room.currentReveal = null;
         room.roundScorers.clear();
+        room.skipVoters.clear();
     }
 
     private RuntimeSong toRuntimeSong(V2MapSongDefinition song) {
@@ -848,11 +922,14 @@ public class V2RoomRuntimeService {
         if (previousParticipant != null) {
             previousParticipant.connected = false;
             previousParticipant.ready = false;
+            previousRoom.skipVoters.remove(previousParticipant.nickname);
             previousRoom.lastEvent = membership.nickname() + "님의 연결 상태를 정리했습니다.";
             appendSystemMessage(previousRoom, previousRoom.lastEvent);
             reassignHostIfNeeded(previousRoom);
             if (activeParticipantCount(previousRoom) == 0) {
                 clearOrRemoveIfEmpty(previousRoom, previousRoom.lastEvent);
+            } else {
+                maybeAdvanceFromSkipVotesAfterRosterChange(previousRoom, membership.nickname());
             }
         }
 
@@ -898,6 +975,7 @@ public class V2RoomRuntimeService {
         room.roundEndsAt = null;
         room.currentReveal = null;
         room.roundScorers.clear();
+        room.skipVoters.clear();
         room.participants.clear();
         room.participants.add(new RuntimeParticipant(room.initialHostNickname, false, false));
     }
@@ -982,6 +1060,9 @@ public class V2RoomRuntimeService {
             room.songs.size(),
             room.answerMode,
             room.roundFlowMode,
+            resolveRequiredSkipVotes(room),
+            room.skipVoters.size(),
+            room.skipVoters.stream().sorted().toList(),
             room.currentPrompt,
             room.currentHint,
             room.hintRevealAt == null ? null : room.hintRevealAt.toString(),
@@ -1062,6 +1143,7 @@ public class V2RoomRuntimeService {
         private Instant roundEndsAt;
         private int hintRevealDelaySeconds;
         private int roundTimeLimitSeconds;
+        private int configuredSkipVotesRequired;
         private String currentReveal;
         private boolean showMediaControls;
         private String songOrderMode;
@@ -1073,6 +1155,7 @@ public class V2RoomRuntimeService {
         private final List<RuntimeSong> authoredSongs = new ArrayList<>();
         private final List<RuntimeSong> songs = new ArrayList<>();
         private final Set<String> roundScorers = new HashSet<>();
+        private final Set<String> skipVoters = new HashSet<>();
         private int gameStartCount;
     }
 

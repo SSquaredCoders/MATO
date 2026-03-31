@@ -17,7 +17,38 @@ public record V2CreateMapRequest(
     @NotBlank String answerMode,
     @NotBlank String roundFlowMode,
     @NotNull Integer roundTimeLimitSeconds,
+    @NotNull Integer skipVotesRequired,
     @NotNull Integer hintRevealDelaySeconds,
     @Valid @NotEmpty List<V2MapSongDefinition> songs
 ) {
+    public V2CreateMapRequest(
+        String name,
+        String description,
+        String createdBy,
+        String difficulty,
+        String visibility,
+        Boolean showMediaControls,
+        String songOrderMode,
+        String answerMode,
+        String roundFlowMode,
+        Integer roundTimeLimitSeconds,
+        Integer hintRevealDelaySeconds,
+        List<V2MapSongDefinition> songs
+    ) {
+        this(
+            name,
+            description,
+            createdBy,
+            difficulty,
+            visibility,
+            showMediaControls,
+            songOrderMode,
+            answerMode,
+            roundFlowMode,
+            roundTimeLimitSeconds,
+            2,
+            hintRevealDelaySeconds,
+            songs
+        );
+    }
 }

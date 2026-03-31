@@ -15,6 +15,7 @@ public record V2MapDetail(
     String answerMode,
     String roundFlowMode,
     int roundTimeLimitSeconds,
+    int skipVotesRequired,
     int hintRevealDelaySeconds,
     List<V2MapSongDefinition> songs
 ) {

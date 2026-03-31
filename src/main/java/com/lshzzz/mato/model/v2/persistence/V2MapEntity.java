@@ -57,6 +57,9 @@ public class V2MapEntity extends BaseEntity {
     @Column(nullable = false)
     private Integer roundTimeLimitSeconds;
 
+    @Column
+    private Integer skipVotesRequired;
+
     @Column(nullable = false)
     private Integer hintRevealDelaySeconds;
 
@@ -75,6 +78,7 @@ public class V2MapEntity extends BaseEntity {
         String answerMode,
         String roundFlowMode,
         int roundTimeLimitSeconds,
+        int skipVotesRequired,
         int hintRevealDelaySeconds
     ) {
         this.name = name;
@@ -87,6 +91,7 @@ public class V2MapEntity extends BaseEntity {
         this.answerMode = answerMode;
         this.roundFlowMode = roundFlowMode;
         this.roundTimeLimitSeconds = roundTimeLimitSeconds;
+        this.skipVotesRequired = skipVotesRequired;
         this.hintRevealDelaySeconds = hintRevealDelaySeconds;
     }
 
@@ -101,6 +106,7 @@ public class V2MapEntity extends BaseEntity {
         String answerMode,
         String roundFlowMode,
         int roundTimeLimitSeconds,
+        int skipVotesRequired,
         int hintRevealDelaySeconds,
         List<V2MapSongDefinition> songs
     ) {
@@ -115,6 +121,7 @@ public class V2MapEntity extends BaseEntity {
             answerMode,
             roundFlowMode,
             roundTimeLimitSeconds,
+            skipVotesRequired,
             hintRevealDelaySeconds
         );
         for (int index = 0; index < songs.size(); index += 1) {
@@ -133,6 +140,7 @@ public class V2MapEntity extends BaseEntity {
         String answerMode,
         String roundFlowMode,
         int roundTimeLimitSeconds,
+        int skipVotesRequired,
         int hintRevealDelaySeconds,
         List<V2MapSongDefinition> songs
     ) {
@@ -145,6 +153,7 @@ public class V2MapEntity extends BaseEntity {
         this.answerMode = answerMode;
         this.roundFlowMode = roundFlowMode;
         this.roundTimeLimitSeconds = roundTimeLimitSeconds;
+        this.skipVotesRequired = skipVotesRequired;
         this.hintRevealDelaySeconds = hintRevealDelaySeconds;
         this.songs.clear();
         for (int index = 0; index < songs.size(); index += 1) {

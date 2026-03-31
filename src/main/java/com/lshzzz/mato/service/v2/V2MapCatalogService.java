@@ -93,6 +93,7 @@ public class V2MapCatalogService {
             normalizeAnswerMode(request.answerMode()),
             normalizeRoundFlowMode(request.roundFlowMode(), request.answerMode()),
             sanitizeNonNegative(request.roundTimeLimitSeconds(), "round time limit"),
+            sanitizeMinimumOne(request.skipVotesRequired(), "skip votes required"),
             sanitizeNonNegative(request.hintRevealDelaySeconds(), "hint reveal delay"),
             songs
         );
@@ -113,6 +114,7 @@ public class V2MapCatalogService {
             normalizeAnswerMode(request.answerMode()),
             normalizeRoundFlowMode(request.roundFlowMode(), request.answerMode()),
             sanitizeNonNegative(request.roundTimeLimitSeconds(), "round time limit"),
+            sanitizeMinimumOne(request.skipVotesRequired(), "skip votes required"),
             sanitizeNonNegative(request.hintRevealDelaySeconds(), "hint reveal delay"),
             songs
         );
@@ -167,6 +169,7 @@ public class V2MapCatalogService {
             coalesceAnswerMode(map.getAnswerMode()),
             coalesceRoundFlowMode(map.getRoundFlowMode()),
             map.getRoundTimeLimitSeconds(),
+            coalesceSkipVotesRequired(map.getSkipVotesRequired()),
             map.getHintRevealDelaySeconds(),
             includeSongs
                 ? map.getSongs().stream()
@@ -247,6 +250,16 @@ public class V2MapCatalogService {
             throw new ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
                 fieldName + " must be zero or greater."
+            );
+        }
+        return value;
+    }
+
+    private int sanitizeMinimumOne(Integer value, String fieldName) {
+        if (value == null || value < 1) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                fieldName + " must be one or greater."
             );
         }
         return value;
@@ -356,5 +369,9 @@ public class V2MapCatalogService {
 
     private String coalesceRoundFlowMode(String value) {
         return value == null || value.isBlank() ? "advance-on-correct" : value;
+    }
+
+    private int coalesceSkipVotesRequired(Integer value) {
+        return value == null || value < 1 ? 2 : value;
     }
 }

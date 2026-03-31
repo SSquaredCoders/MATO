@@ -245,6 +245,64 @@ class V2RoomRuntimeServiceTest {
     }
 
     @Test
+    void advancesTimedRoundsAfterEnoughSkipVotes() {
+        var createdMap = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Vote Skip",
+                "skip vote threshold map",
+                "host-01",
+                "normal",
+                "public",
+                true,
+                "author-order",
+                "single-lock",
+                "timer-or-skip",
+                25,
+                2,
+                0,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: first song",
+                        "First Song",
+                        "Codex",
+                        List.of("first song")
+                    ),
+                    new V2MapSongDefinition(
+                        "Hint: second song",
+                        "Second Song",
+                        "Codex",
+                        List.of("second song")
+                    )
+                )
+            )
+        );
+
+        roomRuntimeService.createRoom(
+            new V2CreateRoomRequest("vote-room", "host-01", createdMap.id())
+        );
+        roomRuntimeService.joinRoom("session-host", "vote-room", "host-01");
+        roomRuntimeService.joinRoom("session-guest", "vote-room", "guest-01");
+        roomRuntimeService.setReady("vote-room", "host-01", true);
+        roomRuntimeService.setReady("vote-room", "guest-01", true);
+        roomRuntimeService.startGame("vote-room", "host-01");
+
+        var firstVote = roomRuntimeService.requestSkipVote("vote-room", "host-01");
+
+        assertThat(firstVote.snapshot()).isNotNull();
+        assertThat(firstVote.snapshot().round()).isEqualTo(1);
+        assertThat(firstVote.snapshot().skipVotesRequired()).isEqualTo(2);
+        assertThat(firstVote.snapshot().currentSkipVotes()).isEqualTo(1);
+        assertThat(firstVote.snapshot().skipVoterNicknames()).containsExactly("host-01");
+
+        var secondVote = roomRuntimeService.requestSkipVote("vote-room", "guest-01");
+
+        assertThat(secondVote.snapshot()).isNotNull();
+        assertThat(secondVote.snapshot().round()).isEqualTo(2);
+        assertThat(secondVote.snapshot().currentSkipVotes()).isEqualTo(0);
+        assertThat(secondVote.snapshot().skipVoterNicknames()).isEmpty();
+    }
+
+    @Test
     void extendsRoundTimeWhenClipLengthExceedsDefault() {
         var createdMap = mapCatalogService.createMap(
             new V2CreateMapRequest(

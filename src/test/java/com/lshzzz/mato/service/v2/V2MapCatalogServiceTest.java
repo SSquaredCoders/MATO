@@ -170,6 +170,37 @@ class V2MapCatalogServiceTest {
     }
 
     @Test
+    void storesSkipVoteRequirementOnMapDetails() {
+        var created = mapCatalogService.createMap(
+            new V2CreateMapRequest(
+                "Skip Queue",
+                "map with skip rule",
+                "host-01",
+                "normal",
+                "public",
+                true,
+                "author-order",
+                "single-lock",
+                "timer-or-skip",
+                20,
+                3,
+                5,
+                List.of(
+                    new V2MapSongDefinition(
+                        "Hint: skip song",
+                        "Skip Me",
+                        "Codex",
+                        List.of("skip me")
+                    )
+                )
+            )
+        );
+
+        assertThat(mapCatalogService.getMap(created.id(), "host-01").skipVotesRequired())
+            .isEqualTo(3);
+    }
+
+    @Test
     void deletesOwnedMaps() {
         var created = mapCatalogService.createMap(
             new V2CreateMapRequest(

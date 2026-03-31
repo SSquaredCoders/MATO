@@ -337,9 +337,7 @@ class V2RoomRuntimeServiceTest {
         var updated = roomRuntimeService.updateRoomSettings(
             "settings-room",
             "host-01",
-            false,
             "random",
-            "multi-score",
             "timer-or-skip",
             42,
             4,
@@ -347,9 +345,9 @@ class V2RoomRuntimeServiceTest {
         );
 
         assertThat(updated.snapshot()).isNotNull();
-        assertThat(updated.snapshot().showMediaControls()).isFalse();
         assertThat(updated.snapshot().songOrderMode()).isEqualTo("random");
-        assertThat(updated.snapshot().answerMode()).isEqualTo("multi-score");
+        assertThat(updated.snapshot().showMediaControls()).isTrue();
+        assertThat(updated.snapshot().answerMode()).isEqualTo("single-lock");
         assertThat(updated.snapshot().roundFlowMode()).isEqualTo("timer-or-skip");
         assertThat(updated.snapshot().roundTimeLimitSeconds()).isEqualTo(42);
         assertThat(updated.snapshot().configuredSkipVotesRequired()).isEqualTo(4);
@@ -366,8 +364,6 @@ class V2RoomRuntimeServiceTest {
         var rejected = roomRuntimeService.updateRoomSettings(
             "settings-room",
             "guest-01",
-            null,
-            null,
             null,
             "timer-or-skip",
             null,

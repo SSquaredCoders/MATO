@@ -125,9 +125,7 @@ public class V2RoomRuntimeService {
             case "room.settings.update" -> updateRoomSettings(
                 roomName,
                 extractNickname(payload),
-                extractNullableBoolean(payload, "showMediaControls"),
                 extractString(payload, "songOrderMode"),
-                extractString(payload, "answerMode"),
                 extractString(payload, "roundFlowMode"),
                 extractInteger(payload, "roundTimeLimitSeconds"),
                 extractInteger(payload, "skipVotesRequired"),
@@ -301,9 +299,7 @@ public class V2RoomRuntimeService {
     public EventResult updateRoomSettings(
         String roomName,
         String nickname,
-        Boolean showMediaControls,
         String songOrderMode,
-        String answerMode,
         String roundFlowMode,
         Integer roundTimeLimitSeconds,
         Integer skipVotesRequired,
@@ -326,19 +322,11 @@ public class V2RoomRuntimeService {
                 return errorEvent(roomName, "지원하지 않는 곡 순서 설정입니다.");
             }
 
-            String nextAnswerMode = Objects.requireNonNullElse(answerMode, room.answerMode);
-            if (!isSupportedAnswerMode(nextAnswerMode)) {
-                return errorEvent(roomName, "지원하지 않는 정답 방식입니다.");
-            }
-
             String nextRoundFlowMode = Objects.requireNonNullElse(roundFlowMode, room.roundFlowMode);
             if (!isSupportedRoundFlowMode(nextRoundFlowMode)) {
                 return errorEvent(roomName, "지원하지 않는 진행 방식입니다.");
             }
 
-            boolean nextShowMediaControls = showMediaControls == null
-                ? room.showMediaControls
-                : showMediaControls;
             int nextRoundTimeLimitSeconds = roundTimeLimitSeconds == null
                 ? room.roundTimeLimitSeconds
                 : Math.max(5, roundTimeLimitSeconds);
@@ -349,9 +337,7 @@ public class V2RoomRuntimeService {
                 ? room.hintRevealDelaySeconds
                 : Math.max(0, hintRevealDelaySeconds);
 
-            room.showMediaControls = nextShowMediaControls;
             room.songOrderMode = nextSongOrderMode;
-            room.answerMode = nextAnswerMode;
             room.roundFlowMode = nextRoundFlowMode;
             room.roundTimeLimitSeconds = nextRoundTimeLimitSeconds;
             room.configuredSkipVotesRequired = nextSkipVotesRequired;
@@ -701,10 +687,6 @@ public class V2RoomRuntimeService {
 
     private boolean isSupportedSongOrderMode(String songOrderMode) {
         return DEFAULT_SONG_ORDER_MODE.equals(songOrderMode) || "random".equals(songOrderMode);
-    }
-
-    private boolean isSupportedAnswerMode(String answerMode) {
-        return DEFAULT_ANSWER_MODE.equals(answerMode) || "multi-score".equals(answerMode);
     }
 
     private boolean isSupportedRoundFlowMode(String roundFlowMode) {
@@ -1208,23 +1190,6 @@ public class V2RoomRuntimeService {
             return booleanValue;
         }
         return Boolean.parseBoolean(String.valueOf(rawValue));
-    }
-
-    private Boolean extractNullableBoolean(Map<String, Object> payload, String key) {
-        Object rawValue = payload.get(key);
-        if (rawValue == null) {
-            return null;
-        }
-        if (rawValue instanceof Boolean booleanValue) {
-            return booleanValue;
-        }
-
-        String candidate = String.valueOf(rawValue).trim();
-        if (candidate.isBlank()) {
-            return null;
-        }
-
-        return Boolean.parseBoolean(candidate);
     }
 
     private Integer extractInteger(Map<String, Object> payload, String key) {

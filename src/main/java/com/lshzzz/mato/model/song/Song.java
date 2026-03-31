@@ -26,9 +26,16 @@ public class Song extends BaseEntity {
 	@Column(nullable = false)
 	private String title;
 
+	@Column
+	private String artist;
+
 	// 업데이트 메서드
 	public void update(String youtubeUrl, String title) {
 		this.youtubeUrl = youtubeUrl;
 		this.title = title;
+	}
+
+	public void updateArtist(String artist) {
+		this.artist = artist;
 	}
 }

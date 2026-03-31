@@ -1,8 +1,11 @@
 package com.lshzzz.mato.controller;
 
+import com.lshzzz.mato.model.song.dto.BulkYoutubeMetaRequestDto;
 import com.lshzzz.mato.model.song.dto.SongRequestDto;
 import com.lshzzz.mato.model.song.dto.SongResponseDto;
+import com.lshzzz.mato.model.song.dto.YoutubeMetaDto;
 import com.lshzzz.mato.service.SongService;
+import com.lshzzz.mato.service.YoutubeMetaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +20,7 @@ import java.util.Optional;
 @RequestMapping("/api/songs")
 public class SongController {
 	private final SongService songService;
+	private final YoutubeMetaService youtubeMetaService;
 
 	// 새로운 노래 생성
 	@PostMapping
@@ -61,6 +65,13 @@ public class SongController {
 		Optional<SongResponseDto> song = songService.getSongByUrl(youtubeUrl);
 		return song.map(ResponseEntity::ok)
 			.orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+	}
+
+	// 유튜브 URL 벌크 메타데이터 조회
+	@PostMapping("/bulk-meta")
+	public ResponseEntity<List<YoutubeMetaDto>> fetchBulkMeta(@RequestBody @Valid BulkYoutubeMetaRequestDto requestDto) {
+		List<YoutubeMetaDto> result = youtubeMetaService.fetchBulkMeta(requestDto.urls());
+		return ResponseEntity.ok(result);
 	}
 
 	// 제목으로 노래 검색

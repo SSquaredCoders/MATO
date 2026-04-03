@@ -10,6 +10,7 @@ import com.lshzzz.mato.model.users.dto.UsersUpdateRequest;
 import com.lshzzz.mato.model.users.dto.UsersUpdateResponse;
 import com.lshzzz.mato.repository.UsersRepository;
 import com.lshzzz.mato.utils.users.UsersMapper;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,30 @@ public class UsersService {
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         return UsersMapper.toLoginResponse(user);
+    }
+
+    @Transactional
+    public UsersLoginResponse upsertGoogleUser(String subject, String name, String email) {
+        String socialUserId = "google:" + subject;
+        Users existingUser = usersRepository.findByUserId(socialUserId).orElse(null);
+
+        if (existingUser != null) {
+            if (existingUser.getDeletedAt() != null) {
+                throw new CustomException(ErrorCode.USER_ALREADY_DELETED);
+            }
+            return UsersMapper.toLoginResponse(existingUser);
+        }
+
+        String nickname = buildGoogleNickname(name, email, subject);
+        Users newUser = Users.builder()
+            .userId(socialUserId)
+            .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+            .nickname(nickname)
+            .role(com.lshzzz.mato.model.users.Role.USER)
+            .build();
+
+        usersRepository.save(newUser);
+        return UsersMapper.toLoginResponse(newUser);
     }
 
     // 아이디 중복 확인 메서드
@@ -117,5 +142,34 @@ public class UsersService {
         }
 
         user.delete();
+    }
+
+    private String buildGoogleNickname(String name, String email, String subject) {
+        String base = firstNonBlank(name, emailPrefix(email), "google-" + tail(subject, 6));
+        String trimmed = base.trim();
+        return trimmed.length() > 20 ? trimmed.substring(0, 20) : trimmed;
+    }
+
+    private String emailPrefix(String email) {
+        if (email == null || email.isBlank() || !email.contains("@")) {
+            return "";
+        }
+        return email.substring(0, email.indexOf('@'));
+    }
+
+    private String tail(String value, int length) {
+        if (value == null || value.isBlank()) {
+            return "user";
+        }
+        return value.length() <= length ? value : value.substring(value.length() - length);
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "google-user";
     }
 }

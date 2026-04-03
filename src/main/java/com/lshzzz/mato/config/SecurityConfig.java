@@ -5,9 +5,11 @@ import com.lshzzz.mato.utils.users.JwtUtil;
 import com.lshzzz.mato.utils.users.filter.CustomLogoutFilter;
 import com.lshzzz.mato.utils.users.filter.JwtFilter;
 import com.lshzzz.mato.utils.users.filter.LoginFilter;
+import com.lshzzz.mato.utils.users.oauth.GoogleOAuthFailureHandler;
+import com.lshzzz.mato.utils.users.oauth.GoogleOAuthSuccessHandler;
 import java.util.List;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -16,7 +18,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
@@ -31,6 +33,9 @@ public class SecurityConfig {
     private final AuthenticationConfiguration authenticationConfiguration;
     private final JwtUtil jwtUtil;
     private final RefreshTokenService refreshTokenService;
+    private final GoogleOAuthSuccessHandler googleOAuthSuccessHandler;
+    private final GoogleOAuthFailureHandler googleOAuthFailureHandler;
+    private final ObjectProvider<ClientRegistrationRepository> clientRegistrationRepositoryProvider;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
@@ -39,18 +44,31 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
-            )
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
             .addFilterBefore(new JwtFilter(jwtUtil, refreshTokenService), LoginFilter.class)
             .addFilterAt(
-                new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil,
-                    refreshTokenService),
-                UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(new CustomLogoutFilter(jwtUtil, refreshTokenService),
-                LogoutFilter.class)
-            .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                new LoginFilter(
+                    authenticationManager(authenticationConfiguration),
+                    jwtUtil,
+                    refreshTokenService
+                ),
+                UsernamePasswordAuthenticationFilter.class
+            )
+            .addFilterBefore(
+                new CustomLogoutFilter(jwtUtil, refreshTokenService),
+                LogoutFilter.class
+            )
+            .sessionManagement(
+                session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            );
+
+        if (clientRegistrationRepositoryProvider.getIfAvailable() != null) {
+            httpSecurity.oauth2Login(
+                oauth -> oauth
+                    .successHandler(googleOAuthSuccessHandler)
+                    .failureHandler(googleOAuthFailureHandler)
+            );
+        }
 
         return httpSecurity.build();
     }
@@ -65,9 +83,11 @@ public class SecurityConfig {
                 "http://112.159.76.59:*"
             )
         );
-        corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        corsConfiguration.setAllowedMethods(
+            List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        );
         corsConfiguration.setAllowedHeaders(List.of("*"));
-        corsConfiguration.setAllowCredentials(true); // 쿠키 등 자격 증명을 사용하는 경우
+        corsConfiguration.setAllowCredentials(true);
         corsConfiguration.setExposedHeaders(List.of("Authorization", "Cookie"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -75,13 +95,6 @@ public class SecurityConfig {
         return source;
     }
 
-    // 패스워드 인코더
-    @Bean
-    public BCryptPasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    // AuthenticationManager 추가
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration)
         throws Exception {

@@ -20,7 +20,7 @@ public class Users extends BaseEntity {
     private Long id;
 
     // User ID
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, unique = true, length = 20)
     private String userId;
 
     // Password

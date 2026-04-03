@@ -5,11 +5,8 @@ import com.lshzzz.mato.utils.users.JwtUtil;
 import com.lshzzz.mato.utils.users.filter.CustomLogoutFilter;
 import com.lshzzz.mato.utils.users.filter.JwtFilter;
 import com.lshzzz.mato.utils.users.filter.LoginFilter;
-import com.lshzzz.mato.utils.users.oauth.GoogleOAuthFailureHandler;
-import com.lshzzz.mato.utils.users.oauth.GoogleOAuthSuccessHandler;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -18,7 +15,6 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
@@ -33,9 +29,6 @@ public class SecurityConfig {
     private final AuthenticationConfiguration authenticationConfiguration;
     private final JwtUtil jwtUtil;
     private final RefreshTokenService refreshTokenService;
-    private final GoogleOAuthSuccessHandler googleOAuthSuccessHandler;
-    private final GoogleOAuthFailureHandler googleOAuthFailureHandler;
-    private final ObjectProvider<ClientRegistrationRepository> clientRegistrationRepositoryProvider;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
@@ -61,14 +54,6 @@ public class SecurityConfig {
             .sessionManagement(
                 session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             );
-
-        if (clientRegistrationRepositoryProvider.getIfAvailable() != null) {
-            httpSecurity.oauth2Login(
-                oauth -> oauth
-                    .successHandler(googleOAuthSuccessHandler)
-                    .failureHandler(googleOAuthFailureHandler)
-            );
-        }
 
         return httpSecurity.build();
     }

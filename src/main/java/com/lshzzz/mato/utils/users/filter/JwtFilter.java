@@ -10,13 +10,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
-import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
@@ -25,10 +25,11 @@ public class JwtFilter extends OncePerRequestFilter {
     private final RefreshTokenService refreshTokenService;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-        FilterChain filterChain)
-        throws ServletException, IOException {
-
+    protected void doFilterInternal(
+        HttpServletRequest request,
+        HttpServletResponse response,
+        FilterChain filterChain
+    ) throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
@@ -36,45 +37,50 @@ public class JwtFilter extends OncePerRequestFilter {
             String username = null;
 
             try {
-                // Access Token에서 사용자 이름 추출
                 username = jwtUtil.getUsername(accessToken);
 
                 if (!jwtUtil.isExpired(accessToken)) {
                     setAuthentication(accessToken, request);
                 } else {
-                    throw new RuntimeException("Access Token expired");
+                    throw new RuntimeException("Access token expired");
                 }
-
-            } catch (Exception e) {
-                // Access Token이 만료된 경우 -> Refresh Token 사용
-                if (username == null && e.getCause() != null) {
+            } catch (Exception exception) {
+                if (username == null) {
                     username = jwtUtil.extractUsernameFromExpiredToken(accessToken);
                 }
 
                 if (username != null) {
                     String storedRefreshToken = refreshTokenService.getRefreshToken(username);
 
-                    if (storedRefreshToken != null && !jwtUtil.isExpired(storedRefreshToken)
+                    if (storedRefreshToken != null
+                        && !jwtUtil.isExpired(storedRefreshToken)
                         && Objects.equals("refresh", jwtUtil.getCategory(storedRefreshToken))) {
-
-                        // 새 토큰 생성
                         String role = jwtUtil.getRole(storedRefreshToken);
-                        String nickname = jwtUtil.getNickname(storedRefreshToken);
-                        String newAccessToken = jwtUtil.createJwt("access", username, role, 600000L); // 10분
-                        String newRefreshToken = jwtUtil.createJwt("refresh", username, role, 86400000L); // 1일
+                        String nickname = resolveNickname(storedRefreshToken, username);
+                        String newAccessToken = jwtUtil.createJwt(
+                            "access",
+                            username,
+                            nickname,
+                            role,
+                            600000L
+                        );
+                        String newRefreshToken = jwtUtil.createJwt(
+                            "refresh",
+                            username,
+                            nickname,
+                            role,
+                            86400000L
+                        );
 
-                        // Refresh 토큰 재발급 (Rotate)
                         refreshTokenService.deleteRefreshToken(username);
                         refreshTokenService.saveRefreshToken(username, newRefreshToken, 86400L);
-
-                        // 새 Access Token 헤더에 추가
                         response.setHeader("Authorization", "Bearer " + newAccessToken);
-
-                        // 인증 정보 설정
                         setAuthentication(newAccessToken, request);
                     } else {
-                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED,
-                            "Invalid or expired refresh token");
+                        response.sendError(
+                            HttpServletResponse.SC_UNAUTHORIZED,
+                            "Invalid or expired refresh token"
+                        );
                         return;
                     }
                 }
@@ -87,15 +93,22 @@ public class JwtFilter extends OncePerRequestFilter {
     private void setAuthentication(String token, HttpServletRequest request) {
         String username = jwtUtil.getUsername(token);
         String role = jwtUtil.getRole(token);
-        String nickname = jwtUtil.getNickname(token);
+        String nickname = resolveNickname(token, username);
         List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(role));
 
         CustomUserDetails userDetails = new CustomUserDetails(username, nickname, authorities);
-
         UsernamePasswordAuthenticationToken auth =
             new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
         auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
         SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    private String resolveNickname(String token, String fallbackUsername) {
+        String nickname = jwtUtil.getNickname(token);
+        if (nickname == null || nickname.isBlank()) {
+            return fallbackUsername;
+        }
+        return nickname;
     }
 }

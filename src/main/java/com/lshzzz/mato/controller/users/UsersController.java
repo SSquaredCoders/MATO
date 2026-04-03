@@ -2,6 +2,7 @@ package com.lshzzz.mato.controller.users;
 
 import com.lshzzz.mato.exception.CustomException;
 import com.lshzzz.mato.exception.ErrorCode;
+import com.lshzzz.mato.model.users.CustomUserDetails;
 import com.lshzzz.mato.model.users.dto.UsersCheckUserIdResponse;
 import com.lshzzz.mato.model.users.dto.UsersLoginRequest;
 import com.lshzzz.mato.model.users.dto.UsersLoginResponse;
@@ -38,7 +39,6 @@ public class UsersController {
     private final JwtUtil jwtUtil;
     private final RefreshTokenService refreshTokenService;
 
-    // 로그인 API
     @PostMapping("/login")
     public ResponseEntity<UsersLoginResponse> login(
         @Valid @RequestBody UsersLoginRequest request,
@@ -46,63 +46,78 @@ public class UsersController {
     ) {
         UsersLoginResponse loginResponse = usersService.login(request.userId(), request.password());
 
-        String accessToken = jwtUtil.createJwt("access", loginResponse.userId(),
-            loginResponse.role().name(), 600000L);
-        String refreshToken = jwtUtil.createJwt("refresh", loginResponse.userId(),
-            loginResponse.role().name(), 86400000L);
+        String accessToken = jwtUtil.createJwt(
+            "access",
+            loginResponse.userId(),
+            loginResponse.nickname(),
+            loginResponse.role().name(),
+            600000L
+        );
+        String refreshToken = jwtUtil.createJwt(
+            "refresh",
+            loginResponse.userId(),
+            loginResponse.nickname(),
+            loginResponse.role().name(),
+            86400000L
+        );
 
-        // Redis에 Refresh 토큰 저장
         refreshTokenService.saveRefreshToken(loginResponse.userId(), refreshToken, 86400L);
-
         response.setHeader("Authorization", "Bearer " + accessToken);
 
         return ResponseEntity.ok(loginResponse);
     }
 
-    // 아이디 중복 확인 API
+    @GetMapping("/me")
+    public ResponseEntity<UsersLoginResponse> getCurrentUser() {
+        return ResponseEntity.ok(usersService.getCurrentUser(getAuthenticatedUserId()));
+    }
+
     @GetMapping("/check-userId")
     public ResponseEntity<UsersCheckUserIdResponse> checkUserId(@RequestParam String userId) {
         boolean isAvailable = usersService.isUserIdAvailable(userId);
         return ResponseEntity.ok(new UsersCheckUserIdResponse(isAvailable));
     }
 
-    // 회원 가입 API
     @PostMapping("/register")
     public ResponseEntity<UsersRegisterResponse> register(
-        @Valid @RequestBody UsersRegisterRequest request) {
-        UsersRegisterResponse response = usersService.register(request);
-
-        return ResponseEntity.ok(response);
+        @Valid @RequestBody UsersRegisterRequest request
+    ) {
+        return ResponseEntity.ok(usersService.register(request));
     }
 
-    // 회원 수정 API
     @PutMapping("/update")
     public ResponseEntity<UsersUpdateResponse> updateUser(
         @Valid @RequestBody UsersUpdateRequest request
     ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userId = authentication.getName();
-
-        UsersUpdateResponse response = usersService.updateUser(userId, request);
+        UsersUpdateResponse response = usersService.updateUser(getAuthenticatedUserId(), request);
         return ResponseEntity.ok(response);
     }
 
-    // 회원 탈퇴 API
     @DeleteMapping("/delete")
     public ResponseEntity<String> deleteUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userId = getAuthenticatedUserId();
+        usersService.deleteUser(userId);
+        refreshTokenService.deleteRefreshToken(userId);
+        return ResponseEntity.ok("회원 탈퇴가 완료되었습니다.");
+    }
 
-        // 인증 정보가 없는 경우 처리
-        if (authentication == null || !authentication.isAuthenticated()) {
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout() {
+        String userId = getAuthenticatedUserId();
+        refreshTokenService.deleteRefreshToken(userId);
+
+        Map<String, String> payload = new HashMap<>();
+        payload.put("message", "로그아웃이 완료되었습니다.");
+        return ResponseEntity.ok(payload);
+    }
+
+    private String getAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null
+            || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
 
-        String userId = authentication.getName();
-
-        // 사용자 삭제 및 Refresh Token 삭제
-        usersService.deleteUser(userId);
-        refreshTokenService.deleteRefreshToken(userId);
-
-        return ResponseEntity.ok("회원 탈퇴가 완료되었습니다.");
+        return userDetails.getUsername();
     }
 }

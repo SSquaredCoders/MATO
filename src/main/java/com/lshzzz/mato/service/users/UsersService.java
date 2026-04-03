@@ -37,6 +37,13 @@ public class UsersService {
         return UsersMapper.toLoginResponse(user);
     }
 
+    public UsersLoginResponse getCurrentUser(String userId) {
+        Users user = usersRepository.findByUserIdAndDeletedAtIsNull(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return UsersMapper.toLoginResponse(user);
+    }
+
     // 아이디 중복 확인 메서드
     @Transactional(readOnly = true)
     public boolean isUserIdAvailable(String userId) {

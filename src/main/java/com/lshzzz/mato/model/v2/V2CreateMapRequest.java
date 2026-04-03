@@ -9,7 +9,7 @@ import java.util.List;
 public record V2CreateMapRequest(
     @NotBlank String name,
     String description,
-    @NotBlank String createdBy,
+    String createdBy,
     @NotBlank String difficulty,
     @NotBlank String visibility,
     @NotNull Boolean showMediaControls,

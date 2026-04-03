@@ -1,5 +1,7 @@
 package com.lshzzz.mato.service.users;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -10,20 +12,38 @@ import org.springframework.stereotype.Service;
 public class RefreshTokenService {
 
     private final StringRedisTemplate redisTemplate;
+    private final ConcurrentMap<String, String> localFallback = new ConcurrentHashMap<>();
 
-    // Refresh Token 저장
     public void saveRefreshToken(String username, String refreshToken, long duration) {
-        redisTemplate.opsForValue()
-            .set("refresh:" + username, refreshToken, duration, TimeUnit.SECONDS);
+        String key = key(username);
+        try {
+            redisTemplate.opsForValue().set(key, refreshToken, duration, TimeUnit.SECONDS);
+        } catch (Exception exception) {
+            localFallback.put(key, refreshToken);
+        }
     }
 
-    // Refresh Token 조회
     public String getRefreshToken(String username) {
-        return redisTemplate.opsForValue().get("refresh:" + username);
+        String key = key(username);
+        try {
+            String token = redisTemplate.opsForValue().get(key);
+            return token != null ? token : localFallback.get(key);
+        } catch (Exception exception) {
+            return localFallback.get(key);
+        }
     }
 
-    // Refresh Token 삭제
     public void deleteRefreshToken(String username) {
-        redisTemplate.delete("refresh:" + username);
+        String key = key(username);
+        try {
+            redisTemplate.delete(key);
+        } catch (Exception exception) {
+            // Local development can continue with the in-memory fallback.
+        }
+        localFallback.remove(key);
+    }
+
+    private String key(String username) {
+        return "refresh:" + username;
     }
 }

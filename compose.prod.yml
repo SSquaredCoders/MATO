@@ -1,0 +1,86 @@
+services:
+  app:
+    build: .
+    image: mato-backend:latest
+    container_name: matoapp-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      SERVER_PORT: ${SERVER_PORT:-18080}
+    expose:
+      - "${SERVER_PORT:-18080}"
+    volumes:
+      - ${MATO_ASSET_DIR:-./data/v2-map-assets}:/app/build/v2-map-assets
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mato-network
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: mato-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - mato-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.0
+    container_name: mato-redis
+    command: ["redis-server", "--requirepass", "${SPRING_DATA_REDIS_PASSWORD}"]
+    environment:
+      SPRING_DATA_REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${SPRING_DATA_REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - mato-network
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: mato-cloudflared
+    command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN}"]
+    depends_on:
+      - app
+    networks:
+      - mato-network
+    restart: unless-stopped
+    profiles:
+      - tunnel
+
+networks:
+  mato-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+    external: true
+    name: ${MYSQL_VOLUME_NAME}
+  redis-data:
+    external: true
+    name: ${REDIS_VOLUME_NAME}

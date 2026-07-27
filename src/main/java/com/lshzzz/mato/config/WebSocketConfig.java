@@ -22,7 +22,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             .setAllowedOriginPatterns(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
-                "http://112.159.76.59:*"
+                "http://112.159.76.59:*",
+                "https://stoolpicker.com",
+                "https://*.stoolpicker.com",
+                "https://mato-game-ui.horrrrrr.chatgpt.site"
             )
             .withSockJS();
 
@@ -30,7 +33,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             .setAllowedOriginPatterns(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
-                "http://112.159.76.59:*"
+                "http://112.159.76.59:*",
+                "https://stoolpicker.com",
+                "https://*.stoolpicker.com",
+                "https://mato-game-ui.horrrrrr.chatgpt.site"
             );
     }
 }

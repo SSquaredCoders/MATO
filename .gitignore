@@ -90,3 +90,4 @@ src/main/resources/application-dev.yml
 
 # .gitignore
 .env
+data/

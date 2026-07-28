@@ -1,7 +1,6 @@
 services:
   app:
-    build: .
-    image: mato-backend:latest
+    image: ${MATO_BACKEND_IMAGE:-ghcr.io/ssquaredcoders/mato-backend:develop}
     container_name: matoapp-backend
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}

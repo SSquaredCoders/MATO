@@ -2,6 +2,7 @@ package com.lshzzz.mato.utils.users.filter;
 
 import com.lshzzz.mato.model.users.CustomUserDetails;
 import com.lshzzz.mato.service.users.RefreshTokenService;
+import com.lshzzz.mato.utils.users.AuthTokenPolicy;
 import com.lshzzz.mato.utils.users.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -54,26 +55,33 @@ public class JwtFilter extends OncePerRequestFilter {
 
                     if (storedRefreshToken != null
                         && !jwtUtil.isExpired(storedRefreshToken)
-                        && Objects.equals("refresh", jwtUtil.getCategory(storedRefreshToken))) {
+                        && Objects.equals(
+                            AuthTokenPolicy.REFRESH_CATEGORY,
+                            jwtUtil.getCategory(storedRefreshToken)
+                        )) {
                         String role = jwtUtil.getRole(storedRefreshToken);
                         String nickname = resolveNickname(storedRefreshToken, username);
                         String newAccessToken = jwtUtil.createJwt(
-                            "access",
+                            AuthTokenPolicy.ACCESS_CATEGORY,
                             username,
                             nickname,
                             role,
-                            600000L
+                            AuthTokenPolicy.ACCESS_TOKEN_TTL
                         );
                         String newRefreshToken = jwtUtil.createJwt(
-                            "refresh",
+                            AuthTokenPolicy.REFRESH_CATEGORY,
                             username,
                             nickname,
                             role,
-                            86400000L
+                            AuthTokenPolicy.REFRESH_TOKEN_TTL
                         );
 
                         refreshTokenService.deleteRefreshToken(username);
-                        refreshTokenService.saveRefreshToken(username, newRefreshToken, 86400L);
+                        refreshTokenService.saveRefreshToken(
+                            username,
+                            newRefreshToken,
+                            AuthTokenPolicy.REFRESH_TOKEN_TTL
+                        );
                         response.setHeader("Authorization", "Bearer " + newAccessToken);
                         setAuthentication(newAccessToken, request);
                     } else {

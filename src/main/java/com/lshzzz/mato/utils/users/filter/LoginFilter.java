@@ -2,6 +2,7 @@ package com.lshzzz.mato.utils.users.filter;
 
 import com.lshzzz.mato.model.users.CustomUserDetails;
 import com.lshzzz.mato.service.users.RefreshTokenService;
+import com.lshzzz.mato.utils.users.AuthTokenPolicy;
 import com.lshzzz.mato.utils.users.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,21 +45,25 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
         HttpServletResponse response, FilterChain chain, Authentication authentication) {
         CustomUserDetails customUserDetails = (CustomUserDetails) authentication.getPrincipal();
         String access = jwtUtil.createJwt(
-            "access",
+            AuthTokenPolicy.ACCESS_CATEGORY,
             customUserDetails.getUsername(),
             customUserDetails.getNickname(),
             customUserDetails.getAuthorities().iterator().next().getAuthority(),
-            600000L
+            AuthTokenPolicy.ACCESS_TOKEN_TTL
         );
         String refresh = jwtUtil.createJwt(
-            "refresh",
+            AuthTokenPolicy.REFRESH_CATEGORY,
             customUserDetails.getUsername(),
             customUserDetails.getNickname(),
             customUserDetails.getAuthorities().iterator().next().getAuthority(),
-            86400000L
+            AuthTokenPolicy.REFRESH_TOKEN_TTL
         );
 
-        refreshTokenService.saveRefreshToken(customUserDetails.getUsername(), refresh, 86400L);
+        refreshTokenService.saveRefreshToken(
+            customUserDetails.getUsername(),
+            refresh,
+            AuthTokenPolicy.REFRESH_TOKEN_TTL
+        );
 
         response.setHeader("Authorization", "Bearer " + access);
         response.setStatus(HttpStatus.OK.value());

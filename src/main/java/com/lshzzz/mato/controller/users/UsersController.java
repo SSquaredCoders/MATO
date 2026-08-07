@@ -12,6 +12,7 @@ import com.lshzzz.mato.model.users.dto.UsersUpdateRequest;
 import com.lshzzz.mato.model.users.dto.UsersUpdateResponse;
 import com.lshzzz.mato.service.users.RefreshTokenService;
 import com.lshzzz.mato.service.users.UsersService;
+import com.lshzzz.mato.utils.users.AuthTokenPolicy;
 import com.lshzzz.mato.utils.users.JwtUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -47,21 +48,25 @@ public class UsersController {
         UsersLoginResponse loginResponse = usersService.login(request.userId(), request.password());
 
         String accessToken = jwtUtil.createJwt(
-            "access",
+            AuthTokenPolicy.ACCESS_CATEGORY,
             loginResponse.userId(),
             loginResponse.nickname(),
             loginResponse.role().name(),
-            600000L
+            AuthTokenPolicy.ACCESS_TOKEN_TTL
         );
         String refreshToken = jwtUtil.createJwt(
-            "refresh",
+            AuthTokenPolicy.REFRESH_CATEGORY,
             loginResponse.userId(),
             loginResponse.nickname(),
             loginResponse.role().name(),
-            86400000L
+            AuthTokenPolicy.REFRESH_TOKEN_TTL
         );
 
-        refreshTokenService.saveRefreshToken(loginResponse.userId(), refreshToken, 86400L);
+        refreshTokenService.saveRefreshToken(
+            loginResponse.userId(),
+            refreshToken,
+            AuthTokenPolicy.REFRESH_TOKEN_TTL
+        );
         response.setHeader("Authorization", "Bearer " + accessToken);
 
         return ResponseEntity.ok(loginResponse);

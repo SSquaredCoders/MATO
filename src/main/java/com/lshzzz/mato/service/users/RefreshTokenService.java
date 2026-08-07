@@ -1,25 +1,44 @@
 package com.lshzzz.mato.service.users;
 
+import java.time.Duration;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class RefreshTokenService {
 
     private final StringRedisTemplate redisTemplate;
-    private final ConcurrentMap<String, String> localFallback = new ConcurrentHashMap<>();
+    private final Clock clock;
+    private final ConcurrentMap<String, LocalRefreshToken> localFallback =
+        new ConcurrentHashMap<>();
 
-    public void saveRefreshToken(String username, String refreshToken, long duration) {
+    @Autowired
+    public RefreshTokenService(StringRedisTemplate redisTemplate) {
+        this(redisTemplate, Clock.systemUTC());
+    }
+
+    RefreshTokenService(StringRedisTemplate redisTemplate, Clock clock) {
+        this.redisTemplate = redisTemplate;
+        this.clock = clock;
+    }
+
+    public void saveRefreshToken(String username, String refreshToken, Duration ttl) {
+        requirePositiveTtl(ttl);
         String key = key(username);
         try {
-            redisTemplate.opsForValue().set(key, refreshToken, duration, TimeUnit.SECONDS);
+            redisTemplate.opsForValue().set(key, refreshToken, ttl);
+            localFallback.remove(key);
         } catch (Exception exception) {
-            localFallback.put(key, refreshToken);
+            localFallback.put(
+                key,
+                new LocalRefreshToken(refreshToken, clock.instant().plus(ttl))
+            );
         }
     }
 
@@ -27,9 +46,9 @@ public class RefreshTokenService {
         String key = key(username);
         try {
             String token = redisTemplate.opsForValue().get(key);
-            return token != null ? token : localFallback.get(key);
+            return token != null ? token : getLocalRefreshToken(key);
         } catch (Exception exception) {
-            return localFallback.get(key);
+            return getLocalRefreshToken(key);
         }
     }
 
@@ -45,5 +64,27 @@ public class RefreshTokenService {
 
     private String key(String username) {
         return "refresh:" + username;
+    }
+
+    private String getLocalRefreshToken(String key) {
+        LocalRefreshToken token = localFallback.get(key);
+        if (token == null) {
+            return null;
+        }
+        if (!token.expiresAt().isAfter(clock.instant())) {
+            localFallback.remove(key, token);
+            return null;
+        }
+        return token.value();
+    }
+
+    private void requirePositiveTtl(Duration ttl) {
+        Objects.requireNonNull(ttl, "ttl must not be null");
+        if (ttl.isZero() || ttl.isNegative()) {
+            throw new IllegalArgumentException("ttl must be positive");
+        }
+    }
+
+    private record LocalRefreshToken(String value, Instant expiresAt) {
     }
 }
